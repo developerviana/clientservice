@@ -17,4 +17,4 @@ console_error.log
 .vscode/
 
 # Ignore sigafat.prw file
-sigafat.prw
+SIGAFAT.prw
