@@ -1,0 +1,20 @@
+# Ignore log files
+*.log
+
+# Ignore environment files
+.env
+
+# Ignore build output
+dist/
+build/
+
+# Ignore OS generated files
+.DS_Store
+Thumbs.db
+console_error.log
+
+# Ignore VSCode settings
+.vscode/
+
+# Ignore sigafat.prw file
+sigafat.prw

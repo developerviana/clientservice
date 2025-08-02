@@ -1,32 +1,4 @@
-# Cliente Services - Teste Prático TOTVS
-
-## Estrutura do Projeto
-
-### 📁 Organização das Pastas
-
-```
-clienteservices/
-├── mvc/                    # Tela MVC Modelo 1 (Interface SmartClient)
-│   ├── CLIMVC.prw        	 # View - Interface principal (SmartClient)
-
-│
-├── po-ui/                   # Tela MVC Modelo 2 (Interface PO-UI)
-│   ├── CLIEPOUI.prw      	 # View - Interface PO-UI
-
-├── rest/                   # API REST 2.0 (TLPP)
-│   ├── CLIAPI.tlpp    		# Controller - Endpoints da API
-│   └── CLISRV.tlpp    		# Service - Lógica de negócio
-│
-├── webservices/           # Integração com WebServices externos
-│   └── VIACEP_WS.prw      # Cliente ViaCEP
-│
-├── importacao/            # Importação via CSV
-│   └── CLIEND_CSV.prw     # Importador CSV em massa
-│
-└── README.md              # Documentação do projeto
-```
-
-### 🎯 Funcionalidades por Módulo
+# Manutenção de Endereços de Clientes
 
 #### MVC (mvc/)
 - Tela principal com browse de clientes
@@ -66,4 +38,3 @@ clienteservices/
 - **ViaCEP**: `https://viacep.com.br/ws/{cep}/json/`
 - **MsExecAuto**: CRMA980 para atualização de clientes
 - **CSV**: Layout com separador `;` (ponto e vírgula)
-# clientservice
