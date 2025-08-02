@@ -121,9 +121,7 @@ Return oStruct
 Static Function GetViewStruct()
     Local oStruct := FWFormStruct(2, 'SA1')
     Local aFields := {"A1_COD", "A1_LOJA", "A1_NOME", "A1_CEP", "A1_END", "A1_BAIRRO", ;
-                      "A1_EST", "A1_MUN", "A1_COMPLEM", "A1_COD_MUN", "A1_REGIAO", ;
-                      "A1_DSCREG", "A1_IBGE", "A1_ENDCOB", "A1_DDI", "A1_ENDENT"}
-
+                      "A1_EST", "A1_MUN", "A1_COMPLEM"}
     Local aAllFields := oStruct:GetFields()
     Local aFieldsCopy := aClone(aAllFields)
     Local nI := 0
