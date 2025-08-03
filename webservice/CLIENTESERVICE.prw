@@ -8,7 +8,6 @@
 //------------------------------------------------------------------------*/
 
 CLASS ClienteMsExecService
-
     METHOD New() CONSTRUCTOR
     METHOD IncluirCliente(oRequest)
     METHOD AlterarCliente(oRequest)
@@ -17,7 +16,6 @@ CLASS ClienteMsExecService
     METHOD BuscarEnderecoCEP(cCEP)
     METHOD ValidarDados(oRequest, nOpcao)
     METHOD MontarArrayCRMA980(oRequest, nOpcao)
-
 ENDCLASS
 
 /*------------------------------------------------------------------------//
@@ -31,66 +29,66 @@ Return Self
 //------------------------------------------------------------------------*/
 METHOD IncluirCliente(oRequest) CLASS ClienteMsExecService
     Local oResponse := JsonObject():New()
-    Local aCliente  := {}
-    Local cErro     := ""
+    Local aCliente := {}
+    Local cErro := ""
+    Local oEndereco := Nil
+    Local oError
 
     ConOut("[SERVICE][INCLUIR] Iniciando inclusão via CRMA980")
 
-    Try
-        // Validar dados obrigatórios
-        cErro := Self:ValidarDados(oRequest, 3) // 3 = Inclusão
+    BEGIN SEQUENCE
+
+        // Validação de dados obrigatórios
+        cErro := Self:ValidarDados(oRequest, 3)
         If !Empty(cErro)
             oResponse["erro"] := .T.
             oResponse["mensagem"] := cErro
-            Return oResponse
+            BREAK
         EndIf
 
-        // Verificar se cliente já existe
-        SA1->(DbSetOrder(1)) // A1_FILIAL+A1_COD+A1_LOJA
+        // Verifica se cliente já existe
+        SA1->(DbSetOrder(1))
         If SA1->(DbSeek(xFilial("SA1") + oRequest["codigo"] + oRequest["loja"]))
             oResponse["erro"] := .T.
             oResponse["mensagem"] := "Cliente já existe: " + oRequest["codigo"] + "-" + oRequest["loja"]
-            Return oResponse
+            BREAK
         EndIf
 
-        // Se informou CEP, busca endereço completo
+        // Busca dados do endereço via CEP
         If oRequest:HasProperty("cep") .And. !Empty(oRequest["cep"])
-            Local oEndereco := Self:BuscarEnderecoCEP(oRequest["cep"])
+            oEndereco := Self:BuscarEnderecoCEP(oRequest["cep"])
             If !oEndereco["erro"]
                 oRequest["endereco"] := oEndereco["logradouro"]
-                oRequest["bairro"] := oEndereco["bairro"]
-                oRequest["cidade"] := oEndereco["localidade"]
-                oRequest["estado"] := oEndereco["uf"]
+                oRequest["bairro"]   := oEndereco["bairro"]
+                oRequest["cidade"]   := oEndereco["localidade"]
+                oRequest["estado"]   := oEndereco["uf"]
             EndIf
         EndIf
 
-        // Montar array para MsExecAuto CRMA980
+        // Montar dados para o CRMA980
         aCliente := Self:MontarArrayCRMA980(oRequest, 3)
-        
-        ConOut("[SERVICE][INCLUIR] Array CRMA980 montado com " + cValToChar(Len(aCliente)) + " itens")
+        ConOut("[SERVICE][INCLUIR] Array CRMA980 com " + cValToChar(Len(aCliente)) + " campos")
 
-        // Chamar MsExecAuto CRMA980
+        // Executa inclusão via MsExecAuto
         MSExecAuto({|x,y| CRMA980(x,y)}, aCliente, 3)
 
         If lMsErroAuto
-            cErro := "Erro no MsExecAuto CRMA980"
-            ConOut("[SERVICE][INCLUIR][ERRO] " + cErro)
             oResponse["erro"] := .T.
-            oResponse["mensagem"] := cErro
+            oResponse["mensagem"] := "Erro no MsExecAuto CRMA980"
         Else
-            ConOut("[SERVICE][INCLUIR] Sucesso: " + oRequest["codigo"] + "-" + oRequest["loja"])
+            ConOut("[SERVICE][INCLUIR] Cliente incluído com sucesso: " + oRequest["codigo"] + "-" + oRequest["loja"])
             oResponse["erro"] := .F.
-            oResponse["mensagem"] := "Cliente incluído com sucesso via CRMA980"
+            oResponse["mensagem"] := "Cliente incluído com sucesso"
             oResponse["codigo"] := oRequest["codigo"]
             oResponse["loja"] := oRequest["loja"]
             oResponse["nome"] := oRequest["nome"]
         EndIf
 
-    Catch oError
-        ConOut("[SERVICE][INCLUIR][ERRO] " + oError:Description)
+    RECOVER USING oError
+        ConOut("[SERVICE][INCLUIR][EXCEPTION] " + oError:Description)
         oResponse["erro"] := .T.
         oResponse["mensagem"] := "Erro interno: " + oError:Description
-    End
+    END SEQUENCE
 
 Return oResponse
 
@@ -101,53 +99,52 @@ METHOD AlterarCliente(oRequest) CLASS ClienteMsExecService
     Local oResponse := JsonObject():New()
     Local aCliente  := {}
     Local cErro     := ""
+    Local oEndereco := Nil
+    Local oError    := Nil
 
     ConOut("[SERVICE][ALTERAR] Iniciando alteração via CRMA980")
 
-    Try
-        // Validar dados obrigatórios
-        cErro := Self:ValidarDados(oRequest, 4) // 4 = Alteração
+    BEGIN SEQUENCE
+
+        // Validação dos dados
+        cErro := Self:ValidarDados(oRequest, 4)
         If !Empty(cErro)
             oResponse["erro"] := .T.
             oResponse["mensagem"] := cErro
-            Return oResponse
+            BREAK
         EndIf
 
-        // Verificar se cliente existe
-        SA1->(DbSetOrder(1)) // A1_FILIAL+A1_COD+A1_LOJA
+        // Verificação da existência do cliente
+        SA1->(DbSetOrder(1)) // A1_FILIAL + A1_COD + A1_LOJA
         If !SA1->(DbSeek(xFilial("SA1") + oRequest["codigo"] + oRequest["loja"]))
             oResponse["erro"] := .T.
             oResponse["codigo"] := "404"
             oResponse["mensagem"] := "Cliente não encontrado: " + oRequest["codigo"] + "-" + oRequest["loja"]
-            Return oResponse
+            BREAK
         EndIf
 
-        // Se informou CEP, busca endereço completo
+        // Enriquecer dados com endereço via CEP, se informado
         If oRequest:HasProperty("cep") .And. !Empty(oRequest["cep"])
-            Local oEndereco := Self:BuscarEnderecoCEP(oRequest["cep"])
+            oEndereco := Self:BuscarEnderecoCEP(oRequest["cep"])
             If !oEndereco["erro"]
                 oRequest["endereco"] := oEndereco["logradouro"]
-                oRequest["bairro"] := oEndereco["bairro"]
-                oRequest["cidade"] := oEndereco["localidade"]
-                oRequest["estado"] := oEndereco["uf"]
+                oRequest["bairro"]   := oEndereco["bairro"]
+                oRequest["cidade"]   := oEndereco["localidade"]
+                oRequest["estado"]   := oEndereco["uf"]
             EndIf
         EndIf
 
-        // Montar array para MsExecAuto CRMA980
+        // Monta dados para envio ao CRMA980
         aCliente := Self:MontarArrayCRMA980(oRequest, 4)
-        
-        ConOut("[SERVICE][ALTERAR] Array CRMA980 montado com " + cValToChar(Len(aCliente)) + " itens")
+        ConOut("[SERVICE][ALTERAR] Array CRMA980 montado com " + cValToChar(Len(aCliente)) + " campos")
 
-        // Chamar MsExecAuto CRMA980
+        // Executa alteração via MsExecAuto
         MSExecAuto({|x,y| CRMA980(x,y)}, aCliente, 4)
 
         If lMsErroAuto
-            cErro := "Erro no MsExecAuto CRMA980"
-            ConOut("[SERVICE][ALTERAR][ERRO] " + cErro)
             oResponse["erro"] := .T.
-            oResponse["mensagem"] := cErro
+            oResponse["mensagem"] := "Erro no MsExecAuto CRMA980"
         Else
-            ConOut("[SERVICE][ALTERAR] Sucesso: " + oRequest["codigo"] + "-" + oRequest["loja"])
             oResponse["erro"] := .F.
             oResponse["mensagem"] := "Cliente alterado com sucesso via CRMA980"
             oResponse["codigo"] := oRequest["codigo"]
@@ -155,47 +152,52 @@ METHOD AlterarCliente(oRequest) CLASS ClienteMsExecService
             oResponse["nome"] := oRequest["nome"]
         EndIf
 
-    Catch oError
+    RECOVER USING oError
         ConOut("[SERVICE][ALTERAR][ERRO] " + oError:Description)
         oResponse["erro"] := .T.
         oResponse["mensagem"] := "Erro interno: " + oError:Description
-    End
+    END SEQUENCE
 
 Return oResponse
+
 
 /*------------------------------------------------------------------------//
 // Excluir cliente via MsExecAuto CRMA980
 //------------------------------------------------------------------------*/
 METHOD ExcluirCliente(cCodigo, cLoja) CLASS ClienteMsExecService
-    Local oResponse := JsonObject():New()
+    Local oResponse := Nil
     Local aCliente  := {}
     Local cErro     := ""
+    Local oError    := Nil
 
+    oResponse := JsonObject():New()
     ConOut("[SERVICE][EXCLUIR] Iniciando exclusão via CRMA980")
+    
+    BEGIN SEQUENCE
 
-    Try
+        // Validação básica
         If Empty(cCodigo) .Or. Empty(cLoja)
             oResponse["erro"] := .T.
             oResponse["mensagem"] := "Código e Loja obrigatórios"
-            Return oResponse
+            BREAK
         EndIf
 
         // Verificar se cliente existe
-        SA1->(DbSetOrder(1)) // A1_FILIAL+A1_COD+A1_LOJA
+        SA1->(DbSetOrder(1)) // A1_FILIAL + A1_COD + A1_LOJA
         If !SA1->(DbSeek(xFilial("SA1") + cCodigo + cLoja))
             oResponse["erro"] := .T.
             oResponse["codigo"] := "404"
             oResponse["mensagem"] := "Cliente não encontrado: " + cCodigo + "-" + cLoja
-            Return oResponse
+            BREAK
         EndIf
 
-        // Montar array básico para exclusão CRMA980
+        // Montar array básico para CRMA980
         aCliente := {{"A1_COD", cCodigo, Nil}}
-        
+
         ConOut("[SERVICE][EXCLUIR] Array CRMA980 montado para exclusão")
 
-        // Chamar MsExecAuto CRMA980
-        MSExecAuto({|x,y| CRMA980(x,y)}, aCliente, 5)
+        // Chamar MsExecAuto
+        MSExecAuto({|x, y| CRMA980(x, y)}, aCliente, 5)
 
         If lMsErroAuto
             cErro := "Erro no MsExecAuto CRMA980"
@@ -210,11 +212,11 @@ METHOD ExcluirCliente(cCodigo, cLoja) CLASS ClienteMsExecService
             oResponse["loja"] := cLoja
         EndIf
 
-    Catch oError
-        ConOut("[SERVICE][EXCLUIR][ERRO] " + oError:Description)
+    RECOVER USING oError
+        ConOut("[SERVICE][EXCLUIR][EXCEPTION] " + oError:Description)
         oResponse["erro"] := .T.
         oResponse["mensagem"] := "Erro interno: " + oError:Description
-    End
+    END SEQUENCE
 
 Return oResponse
 
@@ -225,41 +227,44 @@ METHOD AtualizarEnderecoCEP(cCodigo, cLoja, cCEP) CLASS ClienteMsExecService
     Local oResponse := JsonObject():New()
     Local oEndereco := Nil
     Local oRequest  := JsonObject():New()
+    Local oError    := Nil
 
     ConOut("[SERVICE][ATUALIZAR_CEP] Atualizando endereço via CEP: " + cCEP)
 
-    Try
+    BEGIN SEQUENCE
+
         // Buscar dados do CEP
         oEndereco := Self:BuscarEnderecoCEP(cCEP)
-        
+
         If oEndereco["erro"]
             oResponse["erro"] := .T.
             oResponse["mensagem"] := "Erro ao buscar CEP: " + oEndereco["mensagem"]
-            Return oResponse
+            BREAK
         EndIf
 
-        // Montar request para alteração
-        oRequest["codigo"] := cCodigo
-        oRequest["loja"] := cLoja
-        oRequest["cep"] := cCEP
-        oRequest["endereco"] := oEndereco["logradouro"]
-        oRequest["bairro"] := oEndereco["bairro"]
-        oRequest["cidade"] := oEndereco["localidade"]
-        oRequest["estado"] := oEndereco["uf"]
+        // Montar objeto request para alteração
+        oRequest["codigo"]    := cCodigo
+        oRequest["loja"]      := cLoja
+        oRequest["cep"]       := cCEP
+        oRequest["endereco"]  := oEndereco["logradouro"]
+        oRequest["bairro"]    := oEndereco["bairro"]
+        oRequest["cidade"]    := oEndereco["localidade"]
+        oRequest["estado"]    := oEndereco["uf"]
 
-        // Alterar cliente com novos dados
+        // Chama método AlterarCliente com os novos dados
         oResponse := Self:AlterarCliente(oRequest)
 
+        // Anexa dados adicionais ao sucesso
         If !oResponse["erro"]
             oResponse["endereco_atualizado"] := .T.
             oResponse["dados_cep"] := oEndereco
         EndIf
 
-    Catch oError
-        ConOut("[SERVICE][ATUALIZAR_CEP][ERRO] " + oError:Description)
+    RECOVER USING oError
+        ConOut("[SERVICE][ATUALIZAR_CEP][EXCEPTION] " + oError:Description)
         oResponse["erro"] := .T.
-        oResponse["mensagem"] := "Erro interno: " + oError:Description
-    End
+        oResponse["mensagem"] := "Erro interno ao atualizar endereço via CEP: " + oError:Description
+    END SEQUENCE
 
 Return oResponse
 
@@ -271,54 +276,57 @@ METHOD BuscarEnderecoCEP(cCEP) CLASS ClienteMsExecService
     Local oRest     := Nil
     Local cUrl      := ""
     Local cJson     := ""
+    Local oError    := Nil
 
     ConOut("[SERVICE][VIACEP] Buscando CEP: " + cCEP)
 
-    Try
-        // Limpar CEP
+    BEGIN SEQUENCE
+
+        // Limpar caracteres do CEP
         cCEP := StrTran(StrTran(cCEP, "-", ""), ".", "")
-        
+
         If Len(cCEP) != 8
             oResponse["erro"] := .T.
             oResponse["mensagem"] := "CEP deve ter 8 dígitos"
-            Return oResponse
+            BREAK
         EndIf
 
-        // Preparar URL ViaCEP
+        // Monta URL do serviço ViaCEP
         cUrl := "https://viacep.com.br/ws/" + cCEP + "/json/"
-        
-        // Criar objeto REST
+
+        // Instancia REST client
         oRest := FWRest():New()
         oRest:SetPath(cUrl)
 
-        // Fazer requisição GET
+        // Realiza requisição
         If oRest:Get()
             cJson := oRest:GetResult()
             ConOut("[SERVICE][VIACEP] Resposta: " + cJson)
-            
+
             oResponse:FromJson(cJson)
-            
-            // Verificar se CEP é válido
+
+            // Verifica se o ViaCEP retornou erro
             If oResponse:HasProperty("erro") .And. oResponse["erro"]
                 oResponse["erro"] := .T.
                 oResponse["mensagem"] := "CEP não encontrado"
-                Return oResponse
+                BREAK
             EndIf
-            
+
+            // CEP encontrado com sucesso
             oResponse["erro"] := .F.
             oResponse["mensagem"] := "CEP encontrado com sucesso"
-            
+
         Else
-            ConOut("[SERVICE][VIACEP][ERRO] Falha na requisição")
+            ConOut("[SERVICE][VIACEP][ERRO] Falha na requisição GET")
             oResponse["erro"] := .T.
             oResponse["mensagem"] := "Erro ao consultar ViaCEP: " + oRest:GetLastError()
         EndIf
 
-    Catch oError
-        ConOut("[SERVICE][VIACEP][ERRO] " + oError:Description)
+    RECOVER USING oError
+        ConOut("[SERVICE][VIACEP][EXCEPTION] " + oError:Description)
         oResponse["erro"] := .T.
         oResponse["mensagem"] := "Erro interno ao consultar CEP: " + oError:Description
-    End
+    END SEQUENCE
 
 Return oResponse
 

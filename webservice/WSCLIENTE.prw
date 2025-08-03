@@ -1,205 +1,437 @@
+#include "totvs.ch"
+#include "restful.ch"
+#include "FWMVCDEF.ch"
 #INCLUDE "PROTHEUS.CH"
 #INCLUDE "RWMAKE.CH"
+#include 'TOPCONN.CH'
+#INCLUDE "TBICONN.CH"
 
 /*------------------------------------------------------------------------//
 //Programa:  WSCLIENTE
 //Autor:     Victor 
-//Descricao: Web Service REST simples para cadastro de clientes via MsExecAuto
+//Descricao: Web Service REST simples para cadastro de clientes.
 //------------------------------------------------------------------------*/
 
-WSRESTFUL ClienteMsExecAPI DESCRIPTION "API REST para clientes via MsExecAuto CRMA980"
+WsRestful WSCLIENTE Description "API REST para clientes" Format APPLICATION_JSON	
+	
+	WsData TOKEN As Character
+	WsData FILIAL As Character
+	WsData codigo as Character
+	WsData loja as Character
+	WsData cep as Character
 
-    WSDATA codigo    AS STRING OPTIONAL
-    WSDATA loja      AS STRING OPTIONAL
-    WSDATA cep       AS STRING OPTIONAL
+	WSMETHOD POST INCLUIRCLIENTE ; 
+		DESCRIPTION "Incluir cliente" ;
+		PATH "/clientes" ;
+		WSSYNTAX "clientes";
+	
+	WSMETHOD GET LISTARCLIENTES ; 
+		DESCRIPTION "Listar todos os clientes" ;
+		PATH "/clientes" ;
+		WSSYNTAX "clientes";
 
-    WSMETHOD POST    DESCRIPTION "Incluir cliente"           WSSYNTAX "/clientes"                           PATH "/clientes"
-    WSMETHOD PUT     DESCRIPTION "Alterar cliente"           WSSYNTAX "/clientes/{codigo}/{loja}"           PATH "/clientes" 
-    WSMETHOD DELETE  DESCRIPTION "Excluir cliente"           WSSYNTAX "/clientes/{codigo}/{loja}"           PATH "/clientes"
-    WSMETHOD PATCH   DESCRIPTION "Atualizar endereço por CEP" WSSYNTAX "/clientes/{codigo}/{loja}/cep/{cep}" PATH "/clientes"
+	WSMETHOD GET BUSCARCLIENTE ; 
+		DESCRIPTION "Buscar cliente específico" ;
+		PATH "/clientes/{codigo}/{loja}" ;
+		WSSYNTAX "clientes/{codigo}/{loja}";	
 
-END WSRESTFUL
+	WSMETHOD PUT ALTERARCLIENTE ; 
+		DESCRIPTION "Alterar cliente via CRMA980" ;
+		PATH "/clientes/{codigo}/{loja}" ;
+		WSSYNTAX "clientes/{codigo}/{loja}";
 
-/*------------------------------------------------------------------------//
-// POST - Incluir cliente
-//------------------------------------------------------------------------*/
-WSMETHOD POST WSSERVICE ClienteMsExecAPI
-    Local oResponse := JsonObject():New()
-    Local oService  := ClienteMsExecService():New()
-    Local oRequest  := JsonObject():New()
-    Local cBody     := ::GetContent()
+	WSMETHOD DELETE EXCLUIRCLIENTE ; 
+		DESCRIPTION "Excluir cliente via CRMA980" ;
+		PATH "/clientes/{codigo}/{loja}";
+		WSSYNTAX "clientes/{codigo}/{loja}";
 
-    ConOut("[WSCLIENTE][POST] Iniciando inclusão via MsExecAuto")
+	WSMETHOD PUT ATUALIZARCEP ; 
+		DESCRIPTION "Atualizar endereço por CEP via ViaCEP" ;
+		PATH "/clientes/{codigo}/{loja}/cep/{cep}" ;
+		WSSYNTAX "clientes/{codigo}/{loja}/cep/{cep}";
 
-    Try
-        If !Empty(cBody)
-            oRequest:FromJson(cBody)
-            ConOut("[WSCLIENTE][POST] JSON recebido: " + cBody)
-        Else
-            oResponse["erro"] := .T.
-            oResponse["mensagem"] := "Body vazio"
-            ::SetResponse(oResponse:ToJson())
-            ::SetStatus(400)
-            Return .F.
-        EndIf
+	WSMETHOD POST IMPORTARCLIENTESCSV ; 
+		DESCRIPTION "Importar clientes via arquivo CSV" ;
+		PATH "/clientes/importar" ;
+		WSSYNTAX "clientes/importar";
 
-        oResponse := oService:IncluirCliente(oRequest)
+End WsRestful
 
-        If oResponse["erro"]
-            ::SetStatus(400)
-        Else
-            ::SetStatus(201)
-        EndIf
+/*******************************************************************************/
+/** POST: Incluir cliente via CRMA980
+/*******************************************************************************/
+WSMETHOD POST INCLUIRCLIENTE WSSERVICE WSCLIENTE
+	Local lRet := .T.
+	Local cBody
+	Local jsonBody := JsonObject():New()
+	Local jsonToken := IIf(Self:TOKEN <> Nil, GetWebToken(Self:TOKEN), Nil) 
+	Local cFilParam := IIf(Self:FILIAL <> Nil, Self:FILIAL, "01")
+	Local xResponse := JsonObject():New()
+	Local oClienteService := Nil
 
-        ::SetResponse(oResponse:ToJson())
+	// Recupera o body da requisição
+	cBody := ::GetContent()
+	jsonBody:fromJson(cBody)
 
-    Catch oError
-        ConOut("[WSCLIENTE][POST][ERRO] " + oError:Description)
-        oResponse["erro"] := .T.
-        oResponse["mensagem"] := "Erro interno: " + oError:Description
-        ::SetResponse(oResponse:ToJson())
-        ::SetStatus(500)
-    End
+	if jsonToken <> NIL
+		If fPermissoes(jsonToken, "CLIENTE")
+			if cFilParam <> Nil
+				oClienteService := ClienteMsExecService():New()
+				xResponse := oClienteService:IncluirCliente(jsonBody)
+				if (!xResponse["erro"])
+					::SetResponse(xResponse:ToJson())
+					lRet := .T.
+				else
+					SetRestFault(400, xResponse["mensagem"])
+					lRet := .F.
+				endif
+			else
+				SetRestFault(400, "Deve ser informado a Filial!")
+				lRet := .F.	
+			endif		
+		else
+			SetRestFault(403, "O usuário não tem permissão de incluir cliente.")	
+			lRet := .F.		
+		endif
+	else
+		// Permite operação sem token para testes
+		oClienteService := ClienteMsExecService():New()
+		xResponse := oClienteService:IncluirCliente(jsonBody)
+		if (!xResponse["erro"])
+			::SetResponse(xResponse:ToJson())
+			lRet := .T.
+		else
+			SetRestFault(400, xResponse["mensagem"])
+			lRet := .F.
+		endif
+	endif
 
-    ConOut("[WSCLIENTE][POST] Finalizado")
+	::SetContentType("application/json; charset=utf-8")
 
-Return .T.
+Return lRet
 
-/*------------------------------------------------------------------------//
-// PUT - Alterar cliente  
-//------------------------------------------------------------------------*/
-WSMETHOD PUT WSSERVICE ClienteMsExecAPI
-    Local oResponse := JsonObject():New()
-    Local oService  := ClienteMsExecService():New()
-    Local oRequest  := JsonObject():New()
-    Local cBody     := ::GetContent()
+/*******************************************************************************/
+/** GET: Listar clientes
+/*******************************************************************************/
+WSMETHOD GET LISTARCLIENTES WSSERVICE WSCLIENTE
+	Local lRet := .T.
+	Local xResponse := JsonObject():New()
+	Local jsonToken
+	Local jsonBody := JsonObject():New()
+	Local cToken := Self:TOKEN
+    Local oClienteService := Nil
+    
+	// Converte query string para JSON
+	jsonBody := QueryStringToJson(Self:aQueryString)
+	
+	If cToken <> Nil
+		jsonToken := GetWebToken(cToken)
+	else
+		jsonToken := Nil 
+	endif
+    
+	jsonBody["FILIAL"] := Self:FILIAL
 
-    ConOut("[WSCLIENTE][PUT] Iniciando alteração via MsExecAuto")
-    ConOut("[WSCLIENTE][PUT] Cliente: " + Self:codigo + "-" + Self:loja)
+	oClienteService := ClienteMsExecService():New()
+	xResponse := oClienteService:ListarClientes(jsonBody)
 
-    Try
-        If Empty(Self:codigo) .Or. Empty(Self:loja)
-            oResponse["erro"] := .T.
-            oResponse["mensagem"] := "Código e Loja obrigatórios na URL"
-            ::SetResponse(oResponse:ToJson())
-            ::SetStatus(400)
-            Return .F.
-        EndIf
+	If !xResponse["erro"]
+		::SetResponse(xResponse:ToJson())
+	Else
+		SetRestFault(400, xResponse["mensagem"])	
+		lRet := .F.
+	EndIf
 
-        If !Empty(cBody)
-            oRequest:FromJson(cBody)
-            ConOut("[WSCLIENTE][PUT] JSON recebido: " + cBody)
-        Else
-            oResponse["erro"] := .T.
-            oResponse["mensagem"] := "Body vazio"
-            ::SetResponse(oResponse:ToJson())
-            ::SetStatus(400)
-            Return .F.
-        EndIf
+	::SetContentType("application/json; charset=utf-8")
 
-        oRequest["codigo"] := Self:codigo
-        oRequest["loja"] := Self:loja
+Return lRet
 
-        oResponse := oService:AlterarCliente(oRequest)
+/*******************************************************************************/
+/** GET: Buscar cliente específico
+/*******************************************************************************/
+WSMETHOD GET BUSCARCLIENTE WSSERVICE WSCLIENTE
+	Local lRet := .T.
+	Local xResponse := JsonObject():New()
+	Local jsonToken
+	Local jsonBody := JsonObject():New()
+	Local cToken := Self:TOKEN
+	Local cCodigo := ::aURLParms[1]
+	Local cLoja := ::aURLParms[2]
+    Local oClienteService 
+	
+    If cToken <> Nil
+		jsonToken := GetWebToken(cToken)
+	else
+		jsonToken := Nil 
+	endif
 
-        If oResponse["erro"]
-            ::SetStatus(IIF(oResponse["codigo"] == "404", 404, 400))
-        Else
-            ::SetStatus(200)
-        EndIf
+	jsonBody["codigo"] := cCodigo
+	jsonBody["loja"] := cLoja
+	jsonBody["FILIAL"] := Self:FILIAL
 
-        ::SetResponse(oResponse:ToJson())
+	oClienteService := ClienteMsExecService():New()
+	xResponse := oClienteService:BuscarCliente(cCodigo, cLoja)
 
-    Catch oError
-        ConOut("[WSCLIENTE][PUT][ERRO] " + oError:Description)
-        oResponse["erro"] := .T.
-        oResponse["mensagem"] := "Erro interno: " + oError:Description
-        ::SetResponse(oResponse:ToJson())
-        ::SetStatus(500)
-    End
+	If !xResponse["erro"]
+		::SetResponse(xResponse:ToJson())
+	Else
+		SetRestFault(IIF(xResponse["codigo"] == "404", 404, 400), xResponse["mensagem"])	
+		lRet := .F.
+	EndIf
 
-    ConOut("[WSCLIENTE][PUT] Finalizado")
+	::SetContentType("application/json; charset=utf-8")
 
-Return .T.
+Return lRet
 
-/*------------------------------------------------------------------------//
-// DELETE - Excluir cliente
-//------------------------------------------------------------------------*/
-WSMETHOD DELETE WSSERVICE ClienteMsExecAPI
-    Local oResponse := JsonObject():New()
-    Local oService  := ClienteMsExecService():New()
+/*******************************************************************************/
+/** PUT: Alterar cliente via CRMA980
+/*******************************************************************************/
+WSMETHOD PUT ALTERARCLIENTE WSSERVICE WSCLIENTE
+	Local lRet := .T.
+	Local cBody
+	Local jsonBody := JsonObject():New()
+	Local jsonToken := IIf(Self:TOKEN <> Nil, GetWebToken(Self:TOKEN), Nil) 
+	Local cFilParam := IIf(Self:FILIAL <> Nil, Self:FILIAL, "01")
+	Local cCodigo := ::aURLParms[1]
+	Local cLoja := ::aURLParms[2]
+	Local xResponse := JsonObject():New()
+	Local oClienteService := Nil
 
-    ConOut("[WSCLIENTE][DELETE] Iniciando exclusão via MsExecAuto")
-    ConOut("[WSCLIENTE][DELETE] Cliente: " + Self:codigo + "-" + Self:loja)
+	// Recupera o body da requisição
+	cBody := ::GetContent()
+	jsonBody:fromJson(cBody)
+	
+	// Adiciona código e loja da URL
+	jsonBody["codigo"] := cCodigo
+	jsonBody["loja"] := cLoja
 
-    Try
-        If Empty(Self:codigo) .Or. Empty(Self:loja)
-            oResponse["erro"] := .T.
-            oResponse["mensagem"] := "Código e Loja obrigatórios na URL"
-            ::SetResponse(oResponse:ToJson())
-            ::SetStatus(400)
-            Return .F.
-        EndIf
+	if jsonToken <> NIL
+		If fPermissoes(jsonToken, "CLIENTE")
+			if cFilParam <> Nil
+				oClienteService := ClienteMsExecService():New()
+				xResponse := oClienteService:AlterarCliente(jsonBody)
+				if (!xResponse["erro"])
+					::SetResponse(xResponse:ToJson())
+					lRet := .T.
+				else
+					SetRestFault(IIF(xResponse["codigo"] == "404", 404, 400), xResponse["mensagem"])
+					lRet := .F.
+				endif
+			else
+				SetRestFault(400, "Deve ser informado a Filial!")
+				lRet := .F.	
+			endif		
+		else
+			SetRestFault(403, "O usuário não tem permissão de alterar cliente.")	
+			lRet := .F.		
+		endif
+	else
+		// Permite operação sem token para testes
+		oClienteService := ClienteMsExecService():New()
+		xResponse := oClienteService:AlterarCliente(jsonBody)
+		if (!xResponse["erro"])
+			::SetResponse(xResponse:ToJson())
+			lRet := .T.
+		else
+			SetRestFault(IIF(xResponse["codigo"] == "404", 404, 400), xResponse["mensagem"])
+			lRet := .F.
+		endif
+	endif
 
-        oResponse := oService:ExcluirCliente(Self:codigo, Self:loja)
+	::SetContentType("application/json; charset=utf-8")
 
-        If oResponse["erro"]
-            ::SetStatus(IIF(oResponse["codigo"] == "404", 404, 400))
-        Else
-            ::SetStatus(200)
-        EndIf
+Return lRet
 
-        ::SetResponse(oResponse:ToJson())
+/*******************************************************************************/
+/** DELETE: Excluir cliente via CRMA980
+/*******************************************************************************/
+WSMETHOD DELETE EXCLUIRCLIENTE WSSERVICE WSCLIENTE
+	Local lRet := .T.
+	Local jsonToken := IIf(Self:TOKEN <> Nil, GetWebToken(Self:TOKEN), Nil) 
+	Local cFilParam := IIf(Self:FILIAL <> Nil, Self:FILIAL, "01")
+	Local cCodigo := ::aURLParms[1]
+	Local cLoja := ::aURLParms[2]
+	Local xResponse := JsonObject():New()
+    Local oClienteService := Nil
 
-    Catch oError
-        ConOut("[WSCLIENTE][DELETE][ERRO] " + oError:Description)
-        oResponse["erro"] := .T.
-        oResponse["mensagem"] := "Erro interno: " + oError:Description
-        ::SetResponse(oResponse:ToJson())
-        ::SetStatus(500)
-    End
+	if jsonToken <> NIL
+		If fPermissoes(jsonToken, "CLIENTE")
+			if cFilParam <> Nil
+				oClienteService := ClienteMsExecService():New()
+				xResponse := oClienteService:ExcluirCliente(cCodigo, cLoja)
+				if (!xResponse["erro"])
+					::SetResponse(xResponse:ToJson())
+					lRet := .T.
+				else
+					SetRestFault(IIF(xResponse["codigo"] == "404", 404, 400), xResponse["mensagem"])
+					lRet := .F.
+				endif
+			else
+				SetRestFault(400, "Deve ser informado a Filial!")
+				lRet := .F.	
+			endif		
+		else
+			SetRestFault(403, "O usuário não tem permissão de excluir cliente.")	
+			lRet := .F.		
+		endif
+	else
+		// Permite operação sem token para testes
+		oClienteService := ClienteMsExecService():New()
+		xResponse := oClienteService:ExcluirCliente(cCodigo, cLoja)
+		if (!xResponse["erro"])
+			::SetResponse(xResponse:ToJson())
+			lRet := .T.
+		else
+			SetRestFault(IIF(xResponse["codigo"] == "404", 404, 400), xResponse["mensagem"])
+			lRet := .F.
+		endif
+	endif
 
-    ConOut("[WSCLIENTE][DELETE] Finalizado")
+	::SetContentType("application/json; charset=utf-8")
 
-Return .T.
+Return lRet
 
-/*------------------------------------------------------------------------//
-// PATCH - Atualizar endereço por CEP
-//------------------------------------------------------------------------*/
-WSMETHOD PATCH WSSERVICE ClienteMsExecAPI
-    Local oResponse := JsonObject():New()
-    Local oService  := ClienteMsExecService():New()
+/*******************************************************************************/
+/** PUT: Atualizar endereço por CEP
+/*******************************************************************************/
+WSMETHOD PUT ATUALIZARCEP WSSERVICE WSCLIENTE
+	Local lRet := .T.
+	Local jsonToken := IIf(Self:TOKEN <> Nil, GetWebToken(Self:TOKEN), Nil) 
+	Local cFilParam := IIf(Self:FILIAL <> Nil, Self:FILIAL, "01")
+	Local cCodigo := ::aURLParms[1]
+	Local cLoja := ::aURLParms[2]
+	Local cCEP := ::aURLParms[3]
+	Local xResponse := JsonObject():New()
+    Local oClienteService
 
-    ConOut("[WSCLIENTE][PATCH] Iniciando atualização de endereço via CEP")
-    ConOut("[WSCLIENTE][PATCH] Cliente: " + Self:codigo + "-" + Self:loja + " CEP: " + Self:cep)
+	if jsonToken <> NIL
+		If fPermissoes(jsonToken, "CLIENTE")
+			if cFilParam <> Nil
+				oClienteService := ClienteMsExecService():New()
+				xResponse := oClienteService:AtualizarEnderecoCEP(cCodigo, cLoja, cCEP)
+				if (!xResponse["erro"])
+					::SetResponse(xResponse:ToJson())
+					lRet := .T.
+				else
+					SetRestFault(IIF(xResponse["codigo"] == "404", 404, 400), xResponse["mensagem"])
+					lRet := .F.
+				endif
+			else
+				SetRestFault(400, "Deve ser informado a Filial!")
+				lRet := .F.	
+			endif		
+		else
+			SetRestFault(403, "O usuário não tem permissão de alterar endereço.")	
+			lRet := .F.		
+		endif
+	else
+		// Permite operação sem token para testes
+		oClienteService := ClienteMsExecService():New()
+		xResponse := oClienteService:AtualizarEnderecoCEP(cCodigo, cLoja, cCEP)
+		if (!xResponse["erro"])
+			::SetResponse(xResponse:ToJson())
+			lRet := .T.
+		else
+			SetRestFault(IIF(xResponse["codigo"] == "404", 404, 400), xResponse["mensagem"])
+			lRet := .F.
+		endif
+	endif
 
-    Try
-        If Empty(Self:codigo) .Or. Empty(Self:loja) .Or. Empty(Self:cep)
-            oResponse["erro"] := .T.
-            oResponse["mensagem"] := "Código, Loja e CEP obrigatórios na URL"
-            ::SetResponse(oResponse:ToJson())
-            ::SetStatus(400)
-            Return .F.
-        EndIf
+	::SetContentType("application/json; charset=utf-8")
 
-        oResponse := oService:AtualizarEnderecoCEP(Self:codigo, Self:loja, Self:cep)
+Return lRet
 
-        If oResponse["erro"]
-            ::SetStatus(IIF(oResponse["codigo"] == "404", 404, 400))
-        Else
-            ::SetStatus(200)
-        EndIf
+/*******************************************************************************/
+/** POST: Importar clientes via CSV
+/*******************************************************************************/
+WSMETHOD POST IMPORTARCLIENTESCSV WSSERVICE WSCLIENTE
+	Local lRet := .T.
+	Local cBody
+	Local jsonBody := JsonObject():New()
+	Local jsonToken := IIf(Self:TOKEN <> Nil, GetWebToken(Self:TOKEN), Nil) 
+	Local cFilParam := IIf(Self:FILIAL <> Nil, Self:FILIAL, "01")
+	Local xResponse := JsonObject():New()
+	Local oClienteService := Nil
 
-        ::SetResponse(oResponse:ToJson())
+	// Recupera o body da requisição
+	cBody := ::GetContent()
+	jsonBody:fromJson(cBody)
 
-    Catch oError
-        ConOut("[WSCLIENTE][PATCH][ERRO] " + oError:Description)
-        oResponse["erro"] := .T.
-        oResponse["mensagem"] := "Erro interno: " + oError:Description
-        ::SetResponse(oResponse:ToJson())
-        ::SetStatus(500)
-    End
+	if jsonToken <> NIL
+		If fPermissoes(jsonToken, "CLIENTE")
+			if cFilParam <> Nil
+				xResponse := oClienteService:ImportarClientesCSV(jsonBody)
+				if (!xResponse["erro"])
+					::SetResponse(xResponse:ToJson())
+					lRet := .T.
+				else
+					SetRestFault(400, xResponse["mensagem"])
+					lRet := .F.
+				endif
+			else
+				SetRestFault(400, "Deve ser informado a Filial!")
+				lRet := .F.	
+			endif		
+		else
+			SetRestFault(403, "O usuário não tem permissão de importar clientes.")	
+			lRet := .F.		
+		endif
+	else
+		// Permite operação sem token para testes
+		oClienteService := ClienteMsExecService():New()
+		xResponse := oClienteService:ImportarClientesCSV(jsonBody)
+		if (!xResponse["erro"])
+			::SetResponse(xResponse:ToJson())
+			lRet := .T.
+		else
+			SetRestFault(400, xResponse["mensagem"])
+			lRet := .F.
+		endif
+	endif
 
-    ConOut("[WSCLIENTE][PATCH] Finalizado")
+	::SetContentType("application/json; charset=utf-8")
 
-Return .T.
+Return lRet
+
+/********************************************************************************************************/
+/** Verifica se o usuário pode realizar determinada ação sobre os Clientes
+/********************************************************************************************************/
+Static Function fPermissoes(jsonToken, cOrigem)
+	Local lxPode := .T.
+	
+	// Implementar validação de permissões conforme necessário
+	// Por enquanto permite todas as operações
+	
+	if (cOrigem == "CLIENTE")
+		lxPode := .T. // Permitir por enquanto
+	endif
+
+Return lxPode
+
+/********************************************************************************************************/
+/** Função para obter token web (simplificada)
+/********************************************************************************************************/
+Static Function GetWebToken(cToken)
+	Local oToken := JsonObject():New()
+	
+	// Implementação simplificada
+	oToken["USUARIO"] := "ADMIN"
+	oToken["FILIAL"] := "01"
+	
+Return oToken
+
+/********************************************************************************************************/
+/** Função para converter query string em JSON (simplificada)
+/********************************************************************************************************/
+Static Function QueryStringToJson(aQueryString)
+	Local oJson := JsonObject():New()
+	Local nI
+	
+	If Len(aQueryString) > 0
+		For nI := 1 To Len(aQueryString)
+			// Implementar parse da query string
+		Next
+	EndIf
+	
+Return oJson
+

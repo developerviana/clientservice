@@ -2,24 +2,20 @@
 #INCLUDE "RWMAKE.CH"
 
 /*------------------------------------------------------------------------//
-//Programa:  TESTECLIENTE
-//Autor:     Victor
-//Descricao: Teste simples para validar API de clientes via MsExecAuto
+// Programa:  TESTECLIENTE
+// Autor:     Victor
+// Descrição: Teste simples para validar API de clientes via MsExecAuto
 //------------------------------------------------------------------------*/
 
 User Function TESTECLI()
-    Local oService := Nil
-    Local oRequest := Nil
+    Local oService := ClienteMsExecService():New()
+    Local oRequest := JsonObject():New()
     Local oResponse := Nil
 
     ConOut("[TESTE] ========== INICIANDO TESTES CRMA980 ==========")
 
-    // Instanciar service
-    oService := ClienteMsExecService():New()
-
     // TESTE 1: Incluir cliente
-    ConOut("[TESTE] 1. Testando inclusão de cliente via CRMA980...")
-    oRequest := JsonObject():New()
+    ConOut("[TESTE] 1. Incluir cliente via CRMA980...")
     oRequest["codigo"] := "TST001"
     oRequest["loja"]   := "01"
     oRequest["nome"]   := "Cliente Teste CRMA980"
@@ -27,18 +23,19 @@ User Function TESTECLI()
     oRequest["tipo"]   := "F"
     oRequest["cgc"]    := "12345678901"
     oRequest["cep"]    := "01310-100" // Av. Paulista
-    
+
     oResponse := oService:IncluirCliente(oRequest)
     ConOut("[TESTE] Resultado inclusão: " + oResponse:ToJson())
 
     If !oResponse["erro"]
+
         // TESTE 2: Atualizar endereço via CEP
-        ConOut("[TESTE] 2. Testando atualização de endereço via CEP...")
+        ConOut("[TESTE] 2. Atualizar endereço via CEP...")
         oResponse := oService:AtualizarEnderecoCEP("TST001", "01", "04038-001") // Vila Olímpia
         ConOut("[TESTE] Resultado atualização CEP: " + oResponse:ToJson())
 
         // TESTE 3: Alterar cliente
-        ConOut("[TESTE] 3. Testando alteração de cliente...")
+        ConOut("[TESTE] 3. Alterar cliente via CRMA980...")
         oRequest["nome"] := "Cliente Teste Alterado CRMA980"
         oRequest["nreduz"] := "Teste Alt CRMA980"
 
@@ -46,13 +43,14 @@ User Function TESTECLI()
         ConOut("[TESTE] Resultado alteração: " + oResponse:ToJson())
 
         // TESTE 4: Excluir cliente
-        ConOut("[TESTE] 4. Testando exclusão de cliente...")
+        ConOut("[TESTE] 4. Excluir cliente...")
         oResponse := oService:ExcluirCliente("TST001", "01")
         ConOut("[TESTE] Resultado exclusão: " + oResponse:ToJson())
+
     EndIf
 
-    // TESTE 5: Teste ViaCEP
-    ConOut("[TESTE] 5. Testando integração ViaCEP...")
+    // TESTE 5: Consulta ViaCEP isolado
+    ConOut("[TESTE] 5. Teste de integração com ViaCEP...")
     oResponse := oService:BuscarEnderecoCEP("01310-100")
     ConOut("[TESTE] Resultado ViaCEP: " + oResponse:ToJson())
 
@@ -61,67 +59,63 @@ User Function TESTECLI()
 Return
 
 /*------------------------------------------------------------------------//
-// Teste específico para inclusão
+// Teste específico de inclusão
 //------------------------------------------------------------------------*/
 User Function TESTINC()
     Local oService := ClienteMsExecService():New()
     Local oRequest := JsonObject():New()
     Local oResponse := Nil
+    Local cCod := "TST" + StrZero(Randomize(1,999), 3)
 
-    ConOut("[TESTE INC] Testando apenas inclusão...")
+    ConOut("[TESTINC] Iniciando teste de inclusão simples...")
 
-    oRequest["codigo"] := "TST" + StrZero(Randomize(1, 999), 3)
+    oRequest["codigo"] := cCod
     oRequest["loja"]   := "01"
     oRequest["nome"]   := "Cliente de Teste " + Time()
     oRequest["nreduz"] := "Teste " + Right(Time(), 5)
     oRequest["tipo"]   := "F"
-    
+
     oResponse := oService:IncluirCliente(oRequest)
-    ConOut("[TESTE INC] Resultado: " + oResponse:ToJson())
+    ConOut("[TESTINC] Resultado inclusão: " + oResponse:ToJson())
 
 Return
 
 /*------------------------------------------------------------------------//
-// Teste para validar JSON de entrada
+// Teste para validar parsing de JSON
 //------------------------------------------------------------------------*/
 User Function TESTJSON()
-    Local cJson := ""
+    Local cJson := '{"codigo":"TST999","loja":"01","nome":"Teste JSON","nreduz":"JSON Test"}'
     Local oRequest := JsonObject():New()
+    Local oError := Nil
 
-    ConOut("[TESTE JSON] Testando parsing JSON...")
+    ConOut("[TESTJSON] Testando parsing de JSON...")
+    ConOut("[TESTJSON] JSON de entrada: " + cJson)
 
-    // JSON válido
-    cJson := '{"codigo":"TST999","loja":"01","nome":"Teste JSON","nreduz":"JSON Test"}'
-    ConOut("[TESTE JSON] JSON de entrada: " + cJson)
-
-    Try
+    BEGIN SEQUENCE
         oRequest:FromJson(cJson)
-        ConOut("[TESTE JSON] Parse OK - Código: " + oRequest["codigo"])
-        ConOut("[TESTE JSON] Parse OK - Nome: " + oRequest["nome"])
-    Catch oError
-        ConOut("[TESTE JSON] Erro no parse: " + oError:Description)
-    End
+        ConOut("[TESTJSON] Parse OK - Código: " + oRequest["codigo"])
+        ConOut("[TESTJSON] Parse OK - Nome: " + oRequest["nome"])
+    RECOVER USING oError
+        ConOut("[TESTJSON][ERRO] Falha no parsing: " + oError:Description)
+    END SEQUENCE
 
 Return
 
 /*------------------------------------------------------------------------//
-// Função para simular chamada REST
+// Simulação de chamada REST
 //------------------------------------------------------------------------*/
 User Function TESTREST()
-    Local cJson := ""
+    Local cJson := '{"codigo":"REST01","loja":"01","nome":"Cliente REST","nreduz":"REST","end":"Rua REST, 123"}'
     Local oRequest := JsonObject():New()
     Local oService := ClienteMsExecService():New()
     Local oResponse := Nil
 
-    ConOut("[TESTE REST] Simulando chamada REST...")
+    ConOut("[TESTREST] Simulando chamada REST...")
 
-    // Simular POST /clientes
-    cJson := '{"codigo":"REST01","loja":"01","nome":"Cliente REST","nreduz":"REST","end":"Rua REST, 123"}'
-    
     oRequest:FromJson(cJson)
     oResponse := oService:IncluirCliente(oRequest)
-    
-    ConOut("[TESTE REST] Status: " + IIF(oResponse["erro"], "400/500", "201"))
-    ConOut("[TESTE REST] Response: " + oResponse:ToJson())
+
+    ConOut("[TESTREST] Status HTTP: " + IIF(oResponse["erro"], "400/500", "201"))
+    ConOut("[TESTREST] Response: " + oResponse:ToJson())
 
 Return
