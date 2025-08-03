@@ -68,8 +68,10 @@ Static Function ImportaEndereco(cArquivo)
     Local nAtualizados := 0
     Local cLinha, aCampos, cChave
     Local oArquivo
-    Local nLinha := 1
+    Local aLinhas := {}
     Local nTotLinhas := 0
+    Local nLinha := 0
+    Local nI := 0
 
     oArquivo := FWFileReader():New(cArquivo)
     ConOut("Tentando abrir o arquivo: " + cArquivo)
@@ -88,8 +90,18 @@ Static Function ImportaEndereco(cArquivo)
         Return
     EndIf
 
-    cLinha := AllTrim(oArquivo:ReadLine())
-    aHeaderLido := StrTokArr(cLinha, ";")
+    aLinhas := oArquivo:GetAllLines()
+    oArquivo:Close()
+
+    nTotLinhas := Len(aLinhas)
+
+    If nTotLinhas < 2
+        FWAlertError("O arquivo deve conter ao menos o cabeçalho e uma linha de dados.", "Erro")
+        Return
+    EndIf
+
+    // Validação do cabeçalho
+    aHeaderLido := StrTokArr(AllTrim(aLinhas[1]), ";")
 
     If Len(aHeaderLido) != Len(aHeaderEsperado)
         lHeaderValido := .F.
@@ -104,21 +116,20 @@ Static Function ImportaEndereco(cArquivo)
 
     If !lHeaderValido
         FWAlertError("Cabeçalho inválido. Esperado: " + Join(aHeaderEsperado, ";"), "Erro")
-        oArquivo:Close()
         Return
     EndIf
 
-    // Processar linhas
-    While oArquivo:HasLine()
+    // Processamento das linhas a partir da linha 02
+    For nLinha := 2 To nTotLinhas
         IncProc()
-        nLinha++
-        cLinha := AllTrim(oArquivo:ReadLine())
+        cLinha := AllTrim(aLinhas[nLinha])
 
         If Empty(cLinha)
             Loop
         EndIf
 
         aCampos := StrTokArr(cLinha, ";")
+
         If Len(aCampos) != 8
             FWAlertError("Linha " + Str(nLinha) + " com número incorreto de colunas.", "Erro")
             Loop
@@ -143,13 +154,10 @@ Static Function ImportaEndereco(cArquivo)
         Else
             FWAlertError("Cliente não encontrado na linha " + Str(nLinha) + ": " + aCampos[1] + "-" + aCampos[2], "Aviso")
         EndIf
-    EndDo
+    Next
 
-    oArquivo:Close()
     FWAlertInfo("Importação finalizada. Clientes atualizados: " + Str(nAtualizados), "Sucesso")
 Return
-
-
 
 Static Function ConsultaCEP(cCEP)
     Local aArea        := FWGetArea()
