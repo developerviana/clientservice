@@ -1,6 +1,14 @@
-# EnderecoCliente
+# Cliente Endereço Manager
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.15.
+Sistema de gerenciamento de endereços de clientes desenvolvido em Angular com PO-UI, integrado com webservice TOTVS Protheus.
+
+## Funcionalidades
+
+- Cadastro e edição de clientes
+- Gerenciamento de endereços
+- Atualização automática de endereços via CEP (ViaCEP)
+- Interface responsiva com componentes PO-UI
+- Integração com API REST TOTVS
 
 ## Development server
 

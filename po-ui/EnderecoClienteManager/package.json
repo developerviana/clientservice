@@ -1,13 +1,12 @@
 {
-  "name": "endereco-cliente",
-  "version": "0.0.0",
+  "name": "cliente-endereco-manager",
+  "version": "1.0.0",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test",
-    "serve:ssr:EnderecoCliente": "node dist/endereco-cliente/server/server.mjs"
+    "test": "ng test"
   },
   "private": true,
   "dependencies": {
@@ -18,9 +17,8 @@
     "@angular/forms": "~19.0.0",
     "@angular/platform-browser": "~19.0.0",
     "@angular/platform-browser-dynamic": "~19.0.0",
-    "@angular/platform-server": "^20.1.4",
+    "@angular/platform-server": "~19.0.0",
     "@angular/router": "~19.0.0",
-    "@angular/ssr": "^20.1.4",
     "@po-ui/ng-components": "^19.21.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
