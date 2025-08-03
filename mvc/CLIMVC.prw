@@ -197,7 +197,7 @@ User Function CLIATUALIZACEP()
         Return
     EndIf
 
-    oResult := WSCEP(cCEP)
+    oResult := ConsultaCEP(cCEP)
 
     If oResult == Nil
         Return
@@ -218,19 +218,19 @@ User Function CLIATUALIZACEP()
                 MsUnlock()
 
                 cMensagem := "As informações de endereço do cliente " + SA1->A1_COD + " -> " + SA1->A1_NOME + " foram atualizadas com sucesso."
-                ConOut("[WSCEP][OK] " + cMensagem)
+                ConOut("[SERVICECEP][OK] " + cMensagem)
                 FwAlertSuccess(cMensagem, "Atualização de Endereço")
             Else
                 cMensagem := "Falha na atualização de endereço do cliente (" + SA1->A1_COD + " --> " + SA1->A1_NOME + "), por favor aguarde alguns instantes e tente novamente."
-                ConOut("[WSCEP][ERRO] " + cMensagem)
+                ConOut("[SERVICECEP][ERRO] " + cMensagem)
+                FwAlertError(cMensagem, "Falha na atualização de CEP")
+                Return .F.
             EndIf
-        Else
-            FwAlertError("Cliente não localizado!")
         EndIf
     Endif 
 Return
 
-Static Function WSCEP(cCEP)
+Static Function ConsultaCEP(cCEP)
     Local aArea        := FWGetArea()
     Local aHeader      := {}
     Local oRestClient  := FWRest():New("https://viacep.com.br/ws")
@@ -250,7 +250,7 @@ Static Function WSCEP(cCEP)
 
         If Empty(cResp)
             ConOut("[ViaCEP][ERRO] Resposta vazia para CEP: " + cCEP)
-            FwAlertInfo("Não foi possível obter resposta do serviço ViaCEP para o CEP informado.", "Consulta CEP")
+            FwAlertError("O CEP informado no cadastro de cliente não consta na base de dados da consulta pública.", "Consulta CEP")
             Return nil
         EndIf
 
@@ -259,14 +259,7 @@ Static Function WSCEP(cCEP)
         If oJson:GetJsonObject("erro") == "true"
             cMensagem := "O CEP informado não consta na base."
             ConOut("[ViaCEP][ERRO] " + cMensagem + " CEP: " + cCEP)
-            FwAlertInfo(cMensagem, "Consulta CEP")
-            Return nil
-        EndIf
-        
-        If Empty(oJson["logradouro"]) .And. Empty(oJson["bairro"]) .And. ;
-           Empty(oJson["localidade"]) .And. Empty(oJson["uf"])
-            ConOut("[ViaCEP][ERRO] Dados incompletos no retorno do CEP: " + cCEP)
-            FwAlertInfo("Dados incompletos retornados pelo serviço.", "Consulta CEP")
+            FwAlertError("O CEP informado no cadastro de cliente não consta na base de dados da consulta pública.", "Consulta CEP")
             Return nil
         EndIf
 
