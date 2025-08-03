@@ -47,119 +47,106 @@ User Function CLIMPORT()
     oContainer := TPanel():New( ,,, oDialog:getPanelMain() )
     oContainer:Align := CONTROL_ALIGN_ALLCLIENT
 
-    cTexto := '• Selecione o CSV com os endereços dos clientes.'
+    cTexto := "• O Arquivo deverá ser salvo como .CSV antes de ser importado<br>"
+    cTexto += "• O Layout deverá seguir o número exato de colunas (8)<br>"
+    cTexto += "• O Arquivo não deve conter ';' em suas descrições<br>"
 
-    oSay2 := TSay():New(010,010,{||cTexto},oContainer,,,,,,.T.,,,800,20)
+    oSay2 := TSay():New(005,010,{||cTexto},oContainer,,,,,,.T.,,,900,20)
 
     oSay1 := TSay():New(035,010,{||'Arquivo CSV:'},oContainer,,,,,,.T.,,,100,9)
     oTGet0 := tGet():New(045,010,{|u| if(PCount()>0,cPlanilha:=u,cPlanilha)},oContainer ,180,9,"",,,,,,,.T.,,, {|| .T. } ,,,,.F.,,,"cPlanilha")
 
-    oTButton1 := TButton():New(060, 010, "Selecionar..." ,oContainer,{|| (cPlanilha:=cGetFile("Arquivos CSV | *.csv",OemToAnsi("Selecione Diretorio"),,"",.F.,GETF_LOCALHARD+GETF_NETWORKDRIVE,.F.)), } , 50,10,,,.F.,.T.,.F.,,.F.,,,.F. )
+    oTButton1 := TButton():New(060, 010, "Selecionar..." ,oContainer,{|| (cPlanilha:=cGetFile("Arquivos CSV | *.csv",OemToAnsi("Selecione Diretorio"),,"",.F.,GETF_LOCALHARD+GETF_NETWORKDRIVE,.F.)), } , 100,10,,,.F.,.T.,.F.,,.F.,,,.F. )
 
     oDialog:Activate()
 Return
 
 Static Function ImportaEndereco(cArquivo)
-    Local aLinhas, aCampos, aHeaderLido := {}, aHeaderEsperado := ;
-        {"CODIGO", "LOJA", "CEP", "ENDERECO", "COMPLEMENTO", "BAIRRO", "CIDADE", "UF"}
+    Local aHeaderEsperado := {"CODIGO", "LOJA", "CEP", "ENDERECO", "COMPLEMENTO", "BAIRRO", "CIDADE", "UF"}
+    Local aHeaderLido := {}
     Local lHeaderValido := .T.
-    Local nI, cLinha, cCod, cLoja, cCep, cChave
-    Local oDados, nAtualizados := 0, nIgnorados := 0, nCEPErro := 0, nErroAtualizacao := 0
+    Local nAtualizados := 0
+    Local cLinha, aCampos, cChave
+    Local oArquivo
+    Local nLinha := 1
+    Local nTotLinhas := 0
 
-    If !File(cArquivo)
-        FWAlertError("Arquivo CSV não encontrado!", "Erro")
+    oArquivo := FWFileReader():New(cArquivo)
+    ConOut("Tentando abrir o arquivo: " + cArquivo)
+
+    If !oArquivo:Open()
+        ConOut("Falha ao abrir o arquivo: " + cArquivo)
+        FWAlertError("Não foi possível abrir o arquivo.", "Erro")
         Return
     EndIf
 
-    aLinhas := StrTokArr(MemoRead(cArquivo), Chr(13)+Chr(10))
-    If Len(aLinhas) < 2
-        FWAlertError("O arquivo deve conter pelo menos o cabeçalho e uma linha de dados.", "Erro")
+    ConOut("Arquivo aberto com sucesso: " + cArquivo)
+
+    If oArquivo:EoF()
+        FWAlertError("O arquivo está vazio.", "Erro")
+        oArquivo:Close()
         Return
     EndIf
 
-    aHeaderLido := StrTokArr(AllTrim(aLinhas[1]), ";")
+    cLinha := AllTrim(oArquivo:ReadLine())
+    aHeaderLido := StrTokArr(cLinha, ";")
+
     If Len(aHeaderLido) != Len(aHeaderEsperado)
-        FWAlertError("Cabeçalho inválido: número incorreto de colunas.", "Erro")
-        Return
+        lHeaderValido := .F.
+    Else
+        For nI := 1 To Len(aHeaderEsperado)
+            If AllTrim(Upper(aHeaderLido[nI])) != aHeaderEsperado[nI]
+                lHeaderValido := .F.
+                Exit
+            EndIf
+        Next
     EndIf
-
-    For nI := 1 To Len(aHeaderEsperado)
-        If AllTrim(Upper(aHeaderLido[nI])) != aHeaderEsperado[nI]
-            lHeaderValido := .F.
-            Exit
-        EndIf
-    Next
 
     If !lHeaderValido
-        FWAlertError("Cabeçalho inválido. Ordem esperada: " + Join(aHeaderEsperado, ";"), "Erro")
+        FWAlertError("Cabeçalho inválido. Esperado: " + Join(aHeaderEsperado, ";"), "Erro")
+        oArquivo:Close()
         Return
     EndIf
 
-    If Select("SA1") == 0
-        DbSelectArea("SA1")
-        SA1->(DbUseArea(.T., "TOPCONN", RetSqlName("SA1"), "SA1", .T., .T.))
-    EndIf
+    // Processar linhas
+    While oArquivo:HasLine()
+        IncProc()
+        nLinha++
+        cLinha := AllTrim(oArquivo:ReadLine())
 
-    SA1->(DbSetOrder(1))
+        If Empty(cLinha)
+            Loop
+        EndIf
 
-    For nI := 2 To Len(aLinhas)
-        aCampos := StrTokArr(AllTrim(aLinhas[nI]), ";")
+        aCampos := StrTokArr(cLinha, ";")
         If Len(aCampos) != 8
-            nIgnorados++
+            FWAlertError("Linha " + Str(nLinha) + " com número incorreto de colunas.", "Erro")
             Loop
         EndIf
 
-        cCod  := AllTrim(aCampos[1])
-        cLoja := AllTrim(aCampos[2])
-        cCep  := OnlyNumber(AllTrim(aCampos[3]))
-
-        If Empty(cCep)
-            nIgnorados++
-            Loop
-        EndIf
-
-        oDados := ConsultaCEP(cCep)
-        If oDados == NIL
-            ConOut("O CEP informado no cadastro de cliente não consta na base de dados da consulta pública. Linha: " + Str(nI))
-            nCEPErro++
-            Loop
-        EndIf
-
-        cChave := PadR(cCod, TamSX3("A1_COD")[1]) + PadR(cLoja, TamSX3("A1_LOJA")[1])
+        cChave := PadR(AllTrim(aCampos[1]), TamSX3("A1_COD")[1]) + ;
+                  PadR(AllTrim(aCampos[2]), TamSX3("A1_LOJA")[1])
 
         If SA1->(DbSeek(cChave))
             If RecLock("SA1", .F.)
-                SA1->A1_CEP     := oDados["cep"]
-                SA1->A1_END     := oDados["logradouro"]
-                SA1->A1_COMPLEM := oDados["complemento"]
-                SA1->A1_BAIRRO  := oDados["bairro"]
-                SA1->A1_MUN     := oDados["localidade"]
-                SA1->A1_EST     := oDados["uf"]
+                SA1->A1_CEP     := AllTrim(aCampos[3])
+                SA1->A1_END     := AllTrim(aCampos[4])
+                SA1->A1_COMPLEM := AllTrim(aCampos[5])
+                SA1->A1_BAIRRO  := AllTrim(aCampos[6])
+                SA1->A1_MUN     := AllTrim(aCampos[7])
+                SA1->A1_EST     := AllTrim(aCampos[8])
                 MsUnlock()
-                ConOut("As informações de endereço do cliente " + cCod + " -> " + SA1->A1_NOME + " foram atualizadas com sucesso.")
                 nAtualizados++
             Else
-                ConOut("Falha na atualização de endereço do cliente (" + cCod + " -> " + SA1->A1_NOME + "), por favor aguarde alguns instantes e tente novamente.")
-                nErroAtualizacao++
+                FWAlertError("Erro ao dar lock na linha " + Str(nLinha) + ": " + aCampos[1] + "-" + aCampos[2], "Erro")
             EndIf
         Else
-            ConOut("Cliente não encontrado na base: " + cCod + "-" + cLoja)
-            nIgnorados++
+            FWAlertError("Cliente não encontrado na linha " + Str(nLinha) + ": " + aCampos[1] + "-" + aCampos[2], "Aviso")
         EndIf
-    Next
+    EndDo
 
-    If nAtualizados > 0
-        FwAlertSuccess("Importação concluída com sucesso." + CRLF + ;
-                    "Clientes atualizados: " + Str(nAtualizados) + CRLF + ;
-                    "Ignorados: " + Str(nIgnorados) + CRLF + ;
-                    "CEP não localizado: " + Str(nCEPErro) + CRLF + ;
-                    "Falhas na atualização: " + Str(nErroAtualizacao), "Resumo")
-    Else
-        FWAlertError("Nenhum cliente foi atualizado." + CRLF + ;
-                     "Ignorados: " + Str(nIgnorados) + CRLF + ;
-                     "CEP não localizado: " + Str(nCEPErro) + CRLF + ;
-                     "Falhas na atualização: " + Str(nErroAtualizacao), "Erro")
-    EndIf
+    oArquivo:Close()
+    FWAlertInfo("Importação finalizada. Clientes atualizados: " + Str(nAtualizados), "Sucesso")
 Return
 
 
@@ -184,26 +171,22 @@ Static Function ConsultaCEP(cCEP)
 
         If Empty(cResp)
             ConOut("[ViaCEP][ERRO] Resposta vazia para CEP: " + cCEP)
-            FwAlertInfo("Não foi possível obter resposta do serviço ViaCEP para o CEP informado.", "Consulta CEP")
-            Return nil
+            FWRestArea(aArea)
+            Return Nil
         EndIf
 
         oJson:FromJson(cResp)
 
         If oJson:GetJsonObject("erro") == "true"
-            cMensagem := "O CEP informado não consta na base."
+            cMensagem := "O CEP informado no cadastro de cliente não consta na base de dados da consulta pública."
             ConOut("[ViaCEP][ERRO] " + cMensagem + " CEP: " + cCEP)
-            FwAlertInfo(cMensagem, "Consulta CEP")
-            Return nil
+            FWRestArea(aArea)
+            Return Nil
         EndIf
-        
-        If Empty(oJson["logradouro"]) .And. Empty(oJson["bairro"]) .And. ;
-           Empty(oJson["localidade"]) .And. Empty(oJson["uf"])
-            ConOut("[ViaCEP][ERRO] Dados incompletos no retorno do CEP: " + cCEP)
-            FwAlertInfo("Dados incompletos retornados pelo serviço.", "Consulta CEP")
-            Return nil
-        EndIf
-
+    Else
+        ConOut("[ViaCEP][ERRO] Falha na comunicação com o serviço para CEP: " + cCEP)
+        FWRestArea(aArea)
+        Return Nil
     EndIf
 
     oResult := oJson
