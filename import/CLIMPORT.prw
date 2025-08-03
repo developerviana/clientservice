@@ -67,7 +67,7 @@ Static Function ImportaEndereco(cArquivo)
     Local lHeaderValido := .T.
     Local nAtualizados := 0
     Local cLinha, aCampos, cChave
-    Local oArquivo
+    Local oArquivo, oCliente
     Local aLinhas := {}
     Local nTotLinhas := 0
     Local nLinha := 0
@@ -119,6 +119,10 @@ Static Function ImportaEndereco(cArquivo)
         Return
     EndIf
 
+    
+    DbSelectArea("SA1")
+    SA1->(DbSetOrder(1)) 
+
     // Processamento das linhas a partir da linha 02
     For nLinha := 2 To nTotLinhas
         IncProc()
@@ -129,14 +133,21 @@ Static Function ImportaEndereco(cArquivo)
         EndIf
 
         aCampos := StrTokArr(cLinha, ";")
+        oCliente := JsonObject():New()
 
-        If Len(aCampos) != 8
-            FWAlertError("Linha " + Str(nLinha) + " com número incorreto de colunas.", "Erro")
+        For nI := 1 To Len(aHeaderEsperado)
+            oCliente[ aHeaderEsperado[nI] ] := AllTrim(aCampos[nI])
+        Next
+
+        If Empty(oCliente["CEP"])
+            ConOut("Linha " + Str(nLinha) + ": CEP não preenchido para o cliente " + oCliente["CODIGO"], "Aviso")
             Loop
         EndIf
 
-        cChave := PadR(AllTrim(aCampos[1]), TamSX3("A1_COD")[1]) + ;
-                  PadR(AllTrim(aCampos[2]), TamSX3("A1_LOJA")[1])
+
+        cChave := xFilial("SA1") + ;
+                PadR(AllTrim(aCampos[1]), TamSX3("A1_COD")[1]) + ;
+                PadR(AllTrim(aCampos[2]), TamSX3("A1_LOJA")[1])
 
         If SA1->(DbSeek(cChave))
             If RecLock("SA1", .F.)
@@ -149,12 +160,13 @@ Static Function ImportaEndereco(cArquivo)
                 MsUnlock()
                 nAtualizados++
             Else
-                FWAlertError("Erro ao dar lock na linha " + Str(nLinha) + ": " + aCampos[1] + "-" + aCampos[2], "Erro")
+                FWAlertError("Não foi possível atualizar o cliente na linha " + Str(nLinha) + ": " + aCampos[1] + ". Registro pode estar em uso por outro usuário.", "Aviso")
             EndIf
         Else
-            FWAlertError("Cliente não encontrado na linha " + Str(nLinha) + ": " + aCampos[1] + "-" + aCampos[2], "Aviso")
+            FWAlertError("Cliente não encontrado na linha " + Str(nLinha) + ": " + aCampos[1], "Aviso")
         EndIf
     Next
+
 
     FWAlertInfo("Importação finalizada. Clientes atualizados: " + Str(nAtualizados), "Sucesso")
 Return

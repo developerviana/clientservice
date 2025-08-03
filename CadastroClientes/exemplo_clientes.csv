@@ -10,3 +10,6 @@ CODIGO;LOJA;NOME;NOMEREDUZIDO;TIPO;PESSOA;CNPJCPF;INSCRESTADUAL;CEP;ENDERECO;BAI
 000012;01;Cecília Mendes;Cecília Mendes;C;F;50917684000169;ISENTO;59826204;Praça de Alves;Camponesa 2ª Seção;da Costa;PI;+558400524278;clarice74@carvalho.br
 000013;01;Júlia da Costa;Júlia da Costa;C;J;85072196321;ISENTO;65414586;Quadra Monteiro;Jatobá;das Neves;AC;8134216073;joao-gabrieloliveira@da.br
 000014;01;Larissa Monteiro;Larissa Monteir;C;F;82375619000145;ISENTO;14846564;Viaduto de da Paz;Marieta 2ª Seção;Campos Alegre;RN;05003406088;hsilva@uol.com.br
+
+/protheus12/protheus_data/system_temp/exemplo_clientes.csv
+/protheus12/protheus_data/system_temp/clientes_enderecos.csv
