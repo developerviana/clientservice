@@ -36,17 +36,17 @@ WsRestful WSCLIENTE Description "API REST para clientes" Format APPLICATION_JSON
 		WSSYNTAX "clientes/{codigo}/{loja}";	
 
 	WSMETHOD PUT ALTERARCLIENTE ; 
-		DESCRIPTION "Alterar cliente via CRMA980" ;
+		DESCRIPTION "Alterar cliente" ;
 		PATH "/clientes/{codigo}/{loja}" ;
 		WSSYNTAX "clientes/{codigo}/{loja}";
 
 	WSMETHOD DELETE EXCLUIRCLIENTE ; 
-		DESCRIPTION "Excluir cliente via CRMA980" ;
+		DESCRIPTION "Excluir cliente" ;
 		PATH "/clientes/{codigo}/{loja}";
 		WSSYNTAX "clientes/{codigo}/{loja}";
 
 	WSMETHOD PUT ATUALIZARCEP ; 
-		DESCRIPTION "Atualizar endereço por CEP via ViaCEP" ;
+		DESCRIPTION "Atualizar endereço por CEP" ;
 		PATH "/clientes/{codigo}/{loja}/cep/{cep}" ;
 		WSSYNTAX "clientes/{codigo}/{loja}/cep/{cep}";
 
@@ -58,7 +58,7 @@ WsRestful WSCLIENTE Description "API REST para clientes" Format APPLICATION_JSON
 End WsRestful
 
 /*******************************************************************************/
-/** POST: Incluir cliente via CRMA980
+/** POST: Incluir cliente 
 /*******************************************************************************/
 WSMETHOD POST INCLUIRCLIENTE WSSERVICE WSCLIENTE
 	Local lRet := .T.
@@ -114,34 +114,61 @@ Return lRet
 /** GET: Listar clientes
 /*******************************************************************************/
 WSMETHOD GET LISTARCLIENTES WSSERVICE WSCLIENTE
-	Local lRet := .T.
-	Local xResponse := JsonObject():New()
-	Local jsonToken
-	Local jsonBody := JsonObject():New()
-	Local cToken := Self:TOKEN
-    Local oClienteService := Nil
-    
-	// Converte query string para JSON
-	jsonBody := QueryStringToJson(Self:aQueryString)
-	
-	If cToken <> Nil
-		jsonToken := GetWebToken(cToken)
-	else
-		jsonToken := Nil 
-	endif
-    
-	jsonBody["FILIAL"] := Self:FILIAL
+	Local lRet        := .T.
+	Local xResponse   := JsonObject():New()
+	Local aClientes   := {}
+	Local jsonCliente := Nil
+	Local cQuery      := ""
+	Local lAchou      := .F.
 
-	oClienteService := ClienteMsExecService():New()
-	xResponse := oClienteService:ListarClientes(jsonBody)
+	cQuery := "SELECT A1_COD, A1_LOJA, A1_END, A1_BAIRRO, A1_EST, A1_CEP "
+	cQuery += "FROM " + RetSqlName("SA1") + " "
+	cQuery += "WHERE D_E_L_E_T_ = ' ' "
+	cQuery += "AND A1_FILIAL = '" + xFilial("SA1") + "' "
+	cQuery += "ORDER BY A1_COD, A1_LOJA"
 
-	If !xResponse["erro"]
-		::SetResponse(xResponse:ToJson())
+	Begin Sequence
+		TCQuery cQuery New Alias "QUERY_CLIENTES"
+
+		If !QUERY_CLIENTES->(EOF())
+			lAchou := .T.
+
+			While !QUERY_CLIENTES->(EOF())
+				jsonCliente := JsonObject():New()
+
+				jsonCliente["codigo"]   := AllTrim(QUERY_CLIENTES->A1_COD)
+				jsonCliente["loja"]     := AllTrim(QUERY_CLIENTES->A1_LOJA)
+				jsonCliente["endereco"] := AllTrim(QUERY_CLIENTES->A1_END)
+				jsonCliente["bairro"]   := AllTrim(QUERY_CLIENTES->A1_BAIRRO)
+				jsonCliente["estado"]   := AllTrim(QUERY_CLIENTES->A1_EST)
+				jsonCliente["cep"]      := AllTrim(QUERY_CLIENTES->A1_CEP)
+
+				AAdd(aClientes, jsonCliente)
+				QUERY_CLIENTES->(DbSkip())
+			EndDo
+		EndIf
+
+		QUERY_CLIENTES->(DbCloseArea())
+	Recover
+		lAchou := .F.
+		ConOut("[WSCLIENTE] Erro ao acessar a tabela.")
+	End Sequence
+
+	If lAchou
+		xResponse["sucesso"]  := .T.
+		xResponse["erro"]     := .F.
+		xResponse["dados"]    := aClientes
+		xResponse["total"]    := Len(aClientes)
+		xResponse["mensagem"] := "Clientes listados com sucesso"
 	Else
-		SetRestFault(400, xResponse["mensagem"])	
-		lRet := .F.
+		xResponse["sucesso"]  := .F.
+		xResponse["erro"]     := .T.
+		xResponse["dados"]    := {}
+		xResponse["total"]    := 0
+		xResponse["mensagem"] := "Não foi possível listar clientes."
 	EndIf
 
+	::SetResponse(xResponse:ToJson())
 	::SetContentType("application/json; charset=utf-8")
 
 Return lRet
@@ -157,7 +184,9 @@ WSMETHOD GET BUSCARCLIENTE WSSERVICE WSCLIENTE
 	Local cToken := Self:TOKEN
 	Local cCodigo := ::aURLParms[1]
 	Local cLoja := ::aURLParms[2]
-    Local oClienteService 
+    Local cQuery := ""
+    Local cAlias := GetNextAlias()
+    Local jsonCliente := JsonObject():New()
 	
     If cToken <> Nil
 		jsonToken := GetWebToken(cToken)
@@ -169,8 +198,50 @@ WSMETHOD GET BUSCARCLIENTE WSSERVICE WSCLIENTE
 	jsonBody["loja"] := cLoja
 	jsonBody["FILIAL"] := Self:FILIAL
 
-	oClienteService := ClienteMsExecService():New()
-	xResponse := oClienteService:BuscarCliente(cCodigo, cLoja)
+	// Query para buscar cliente específico na SA1
+	cQuery := "SELECT A1_COD, A1_LOJA, A1_NOME, A1_NREDUZ, A1_PESSOA, A1_CGC, "
+	cQuery += "A1_END, A1_NR_END, A1_COMPLEM, A1_BAIRRO, A1_MUN, A1_EST, A1_CEP, "
+	cQuery += "A1_DDD, A1_TEL, A1_EMAIL, A1_MSBLQL "
+	cQuery += "FROM " + RetSqlName("SA1") + " SA1 "
+	cQuery += "WHERE SA1.D_E_L_E_T_ = ' ' "
+	cQuery += "AND A1_FILIAL = '" + xFilial("SA1") + "' "
+	cQuery += "AND A1_COD = '" + cCodigo + "' "
+	cQuery += "AND A1_LOJA = '" + cLoja + "' "
+
+	cQuery := ChangeQuery(cQuery)
+	
+	DbUseArea(.T., "TOPCONN", TCGenQry(,, cQuery), cAlias, .F., .T.)
+	
+	If (cAlias)->(!EOF())
+		jsonCliente["codigo"] := AllTrim((cAlias)->A1_COD)
+		jsonCliente["loja"] := AllTrim((cAlias)->A1_LOJA)
+		jsonCliente["nome"] := AllTrim((cAlias)->A1_NOME)
+		jsonCliente["nomeReduzido"] := AllTrim((cAlias)->A1_NREDUZ)
+		jsonCliente["tipo"] := AllTrim((cAlias)->A1_PESSOA)
+		jsonCliente["cnpjCpf"] := AllTrim((cAlias)->A1_CGC)
+		jsonCliente["endereco"] := AllTrim((cAlias)->A1_END)
+		jsonCliente["numero"] := AllTrim((cAlias)->A1_NR_END)
+		jsonCliente["complemento"] := AllTrim((cAlias)->A1_COMPLEM)
+		jsonCliente["bairro"] := AllTrim((cAlias)->A1_BAIRRO)
+		jsonCliente["cidade"] := AllTrim((cAlias)->A1_MUN)
+		jsonCliente["estado"] := AllTrim((cAlias)->A1_EST)
+		jsonCliente["cep"] := AllTrim((cAlias)->A1_CEP)
+		jsonCliente["telefone"] := AllTrim((cAlias)->A1_DDD) + AllTrim((cAlias)->A1_TEL)
+		jsonCliente["email"] := AllTrim((cAlias)->A1_EMAIL)
+		jsonCliente["ativo"] := IIF((cAlias)->A1_MSBLQL == "1", .F., .T.)
+		
+		xResponse["sucesso"] := .T.
+		xResponse["erro"] := .F.
+		xResponse["dados"] := jsonCliente
+		xResponse["mensagem"] := "Cliente encontrado"
+	Else
+		xResponse["sucesso"] := .F.
+		xResponse["erro"] := .T.
+		xResponse["codigo"] := "404"
+		xResponse["mensagem"] := "Cliente não encontrado"
+	EndIf
+	
+	(cAlias)->(DbCloseArea())
 
 	If !xResponse["erro"]
 		::SetResponse(xResponse:ToJson())

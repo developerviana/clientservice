@@ -169,24 +169,44 @@ export class LoginComponent implements OnInit {
   }
 
   onLogin(): void {
+    console.log('Tentativa de login iniciada');
+    console.log('Form válido:', this.loginForm.valid);
+    console.log('Valores do form:', this.loginForm.value);
+    
     if (this.loginForm.valid) {
       this.loading = true;
       
       const { username, password } = this.loginForm.value;
+      console.log('Credenciais:', { username, password: '***' });
       
-      this.authService.authenticateBasic(username, password).subscribe({
-        next: () => {
-          this.loading = false;
-          this.notification.success('Login realizado com sucesso!');
-          this.router.navigate([this.returnUrl]);
-        },
-        error: (error) => {
-          this.loading = false;
-          console.error('Erro no login:', error);
-          this.notification.error('Erro ao fazer login. Verifique suas credenciais.');
-        }
-      });
+      try {
+        this.authService.authenticateBasic(username, password).subscribe({
+          next: (result) => {
+            console.log('Login bem-sucedido:', result);
+            this.loading = false;
+            this.notification.success('Login realizado com sucesso!');
+            this.router.navigate([this.returnUrl]);
+          },
+          error: (error) => {
+            console.error('Erro no login (subscribe):', error);
+            this.loading = false;
+            
+            if (error.message === 'Credenciais inválidas') {
+              this.notification.error('Usuário ou senha incorretos.');
+            } else if (error.message === 'Servidor indisponível') {
+              this.notification.error('Servidor TOTVS indisponível. Tente novamente.');
+            } else {
+              this.notification.error('Erro ao fazer login. Verifique suas credenciais.');
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Erro no login (try/catch):', error);
+        this.loading = false;
+        this.notification.error('Erro ao fazer login. Verifique suas credenciais.');
+      }
     } else {
+      console.log('Formulário inválido');
       this.notification.warning('Preencha todos os campos obrigatórios.');
     }
   }
