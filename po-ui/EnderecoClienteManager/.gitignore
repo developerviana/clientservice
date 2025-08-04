@@ -1,9 +1,4 @@
-# See https://docs.github.com/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
 
-# Compiled output
-/dist
-/tmp
-/out-tsc
 /bazel-out
 
 # Node
@@ -12,6 +7,14 @@ npm-debug.log
 yarn-error.log
 
 # IDEs and editors
+                      | Initial total                                                   |  11.01 MB
+
+Lazy chunk files      | Names                                                           |  Raw size
+897.js                | po-ui-ng-components-po-chart-modal-table-component-mSWyBcer-mjs |   3.87 kB | 
+
+Build at: 2025-08-03T21:28:04.912Z - Hash: 51b783eeda0799d5 - Time: 6246ms
+
+** Angular 
 .idea/
 .project
 .classpath

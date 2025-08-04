@@ -1,0 +1,353 @@
+// Estilização moderna com fundo azul
+:host {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: block;
+}
+
+.container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 0;
+}
+
+.app-header {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  padding: 15px 30px;
+  margin-bottom: 20px;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.header-left h2 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.user-info {
+  color: #7f8c8d;
+  font-size: 0.9rem;
+  margin-left: 10px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+}
+
+::ng-deep .logout-button .po-button {
+  background: linear-gradient(135deg, #e74c3c, #c0392b) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  color: white !important;
+  padding: 8px 16px !important;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    background: linear-gradient(135deg, #c0392b, #a93226) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+  }
+}
+
+// Estilização da página
+::ng-deep .po-page-default {
+  background: transparent !important;
+  max-width: 1200px !important;
+  margin: 0 auto !important;
+  padding: 0 20px !important;
+  
+  .po-page-default-header {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(10px) !important;
+    border-radius: 15px !important;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    
+    .po-page-default-title {
+      color: #2c3e50 !important;
+      font-weight: 600;
+      font-size: 1.8rem;
+    }
+  }
+  
+  .po-page-content {
+    background: transparent !important;
+  }
+}
+
+// Container centralizado com visual moderno
+.content-centered {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.table-container {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  padding: 30px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  margin-bottom: 20px;
+}
+
+// Estilização da tabela
+::ng-deep .po-table {
+  border-radius: 15px !important;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  
+  .po-table-header {
+    background: linear-gradient(135deg, #3498db, #2980b9) !important;
+    
+    .po-table-header-cell {
+      color: white !important;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-size: 0.9rem;
+    }
+  }
+  
+  .po-table-row {
+    transition: all 0.3s ease;
+    
+    &:hover {
+      background: rgba(52, 152, 219, 0.1) !important;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    
+    .po-table-cell {
+      border-bottom: 1px solid rgba(52, 152, 219, 0.1) !important;
+      padding: 15px 12px;
+      color: #2c3e50 !important;
+    }
+  }
+  
+  .po-table-row-template {
+    &:nth-child(even) {
+      background: rgba(255, 255, 255, 0.5) !important;
+    }
+    
+    &:nth-child(odd) {
+      background: rgba(248, 249, 250, 0.5) !important;
+    }
+  }
+}
+
+// Botões de ação da tabela
+::ng-deep .po-table-actions {
+  .po-button {
+    margin: 0 2px;
+    border-radius: 8px !important;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    
+    &.po-button-primary {
+      background: linear-gradient(135deg, #3498db, #2980b9) !important;
+      border: none !important;
+      
+      &:hover {
+        background: linear-gradient(135deg, #2980b9, #1f5582) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
+      }
+    }
+    
+    &.po-button-secondary {
+      background: linear-gradient(135deg, #95a5a6, #7f8c8d) !important;
+      border: none !important;
+      color: white !important;
+      
+      &:hover {
+        background: linear-gradient(135deg, #7f8c8d, #636e72) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(149, 165, 166, 0.4);
+      }
+    }
+    
+    &.po-button-success {
+      background: linear-gradient(135deg, #27ae60, #16a085) !important;
+      border: none !important;
+      
+      &:hover {
+        background: linear-gradient(135deg, #16a085, #138d75) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
+      }
+    }
+  }
+}
+
+// Botão de atualizar lista
+::ng-deep .po-page-default-actions {
+  .po-button {
+    background: linear-gradient(135deg, #8e44ad, #9b59b6) !important;
+    border: none !important;
+    border-radius: 10px !important;
+    padding: 12px 24px !important;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      background: linear-gradient(135deg, #732d91, #8e44ad) !important;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(142, 68, 173, 0.4);
+    }
+  }
+}
+
+// Estilização dos modais
+::ng-deep .po-modal {
+  .po-modal-content {
+    border-radius: 20px !important;
+    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  
+  .po-modal-header {
+    background: linear-gradient(135deg, #3498db, #2980b9) !important;
+    color: white !important;
+    border-radius: 20px 20px 0 0 !important;
+    
+    .po-modal-title {
+      font-weight: 600;
+      font-size: 1.3rem;
+    }
+  }
+  
+  .po-modal-body {
+    background: rgba(255, 255, 255, 0.95) !important;
+    padding: 30px !important;
+  }
+  
+  .po-modal-footer {
+    background: rgba(248, 249, 250, 0.95) !important;
+    border-radius: 0 0 20px 20px !important;
+    padding: 20px 30px !important;
+    
+    .po-button {
+      border-radius: 10px !important;
+      padding: 10px 20px !important;
+      font-weight: 600;
+      margin: 0 5px;
+      transition: all 0.3s ease;
+      
+      &.po-button-primary {
+        background: linear-gradient(135deg, #27ae60, #16a085) !important;
+        border: none !important;
+        
+        &:hover {
+          background: linear-gradient(135deg, #16a085, #138d75) !important;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
+        }
+      }
+      
+      &.po-button-secondary {
+        background: linear-gradient(135deg, #95a5a6, #7f8c8d) !important;
+        border: none !important;
+        color: white !important;
+        
+        &:hover {
+          background: linear-gradient(135deg, #7f8c8d, #636e72) !important;
+          transform: translateY(-2px);
+        }
+      }
+    }
+  }
+}
+
+// Campos do formulário
+::ng-deep .po-field {
+  margin-bottom: 20px;
+  
+  .po-field-container {
+    .po-input {
+      border-radius: 10px !important;
+      border: 2px solid rgba(52, 152, 219, 0.2) !important;
+      transition: all 0.3s ease;
+      
+      &:focus {
+        border-color: #3498db !important;
+        box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1) !important;
+        transform: translateY(-1px);
+      }
+    }
+    
+    .po-field-label {
+      color: #2c3e50 !important;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+  }
+}
+
+// Loading
+::ng-deep .po-loading {
+  .po-loading-icon {
+    color: #3498db !important;
+  }
+  
+  .po-loading-text {
+    color: #2c3e50 !important;
+    font-weight: 500;
+  }
+}
+
+// Mensagens de notificação
+::ng-deep .po-notification {
+  border-radius: 10px !important;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+}
+
+// Responsividade
+@media (max-width: 768px) {
+  .container {
+    padding: 10px;
+  }
+  
+  .table-container {
+    padding: 20px;
+    border-radius: 15px;
+  }
+  
+  .content-centered {
+    padding: 0 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 5px;
+  }
+  
+  .table-container {
+    padding: 15px;
+    border-radius: 10px;
+  }
+  
+  ::ng-deep .po-page-default-header {
+    .po-page-default-title {
+      font-size: 1.4rem !important;
+    }
+  }
+}
