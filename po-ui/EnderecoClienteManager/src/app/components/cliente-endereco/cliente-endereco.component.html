@@ -16,10 +16,18 @@
     </div>
   </div>
 
-  
-  <po-page-default
-    [p-actions]="pageActions">
-    
+  <!-- Container da lista de clientes -->
+  <div class="clientes-lista-container">
+    <h2>Lista de Clientes</h2>
+    <div class="po-row po-mb-2">
+      <div class="po-md-12 po-text-right">
+        <po-button
+          p-label="Atualizar Lista"
+          p-icon="po-icon-refresh"
+          (p-click)="atualizarLista()">
+        </po-button>
+      </div>
+    </div>
     <div class="content-centered">
       <div class="table-container">
         <po-table
@@ -34,143 +42,142 @@
         </po-table>
       </div>
     </div>
+  </div>
 
-    <!-- Modal de Edição Completa -->
-    <po-modal
-      p-title="Editar Endereço do Cliente"
-      *ngIf="modalEditar"
-      p-size="lg"
-      (p-close)="fecharModal()">
-      
-      <form [formGroup]="form" class="po-row">
-        <div class="po-md-6">
-          <po-input p-label="Código" formControlName="codigo" p-readonly="true"></po-input>
-        </div>
-        <div class="po-md-6">
-          <po-input p-label="Loja" formControlName="loja" p-readonly="true"></po-input>
-        </div>
-        <div class="po-md-12">
-          <po-input p-label="Nome" formControlName="nome" p-readonly="true"></po-input>
-        </div>
-        <div class="po-md-4">
-          <po-input 
-            p-label="CEP" 
-            formControlName="cep" 
-            p-mask="99999-999"
-            (p-change)="buscarEnderecoPorCep($event)"></po-input>
-        </div>
-        <div class="po-md-8">
-          <po-input p-label="Endereço" formControlName="endereco"></po-input>
-        </div>
-        <div class="po-md-3">
-          <po-input p-label="Número" formControlName="numero"></po-input>
-        </div>
-        <div class="po-md-9">
-          <po-input p-label="Complemento" formControlName="complemento"></po-input>
-        </div>
-        <div class="po-md-4">
-          <po-input p-label="Bairro" formControlName="bairro"></po-input>
-        </div>
-        <div class="po-md-6">
-          <po-input p-label="Cidade" formControlName="cidade"></po-input>
-        </div>
-        <div class="po-md-2">
-          <po-input p-label="Estado" formControlName="estado"></po-input>
-        </div>
-      </form>
-
-      <div class="po-row">
-        <div class="po-md-12 po-text-right">
-          <po-button
-            p-label="Cancelar"
-            (p-click)="fecharModal()"
-            class="po-mr-1">
-          </po-button>
-          <po-button
-            p-label="Salvar"
-            [p-loading]="carregando"
-            (p-click)="salvarEndereco()">
-          </po-button>
-        </div>
+  <!-- Modal de Edição Completa -->
+  <po-modal
+    p-title="Editar Endereço do Cliente"
+    *ngIf="modalEditar"
+    p-size="lg"
+    (p-close)="fecharModal()">
+    
+    <form [formGroup]="form" class="po-row">
+      <div class="po-md-6">
+        <po-input p-label="Código" formControlName="codigo" p-readonly="true"></po-input>
       </div>
-    </po-modal>
-
-    <!-- Modal de Visualização -->
-    <po-modal
-      p-title="Dados do Cliente"
-      *ngIf="modalVisualizacao"
-      p-size="lg"
-      (p-close)="fecharModalVisualizacao()">
-      
-      <form [formGroup]="form" class="po-row">
-        <div class="po-md-6">
-          <po-input p-label="Código" formControlName="codigo" p-readonly="true"></po-input>
-        </div>
-        <div class="po-md-6">
-          <po-input p-label="Loja" formControlName="loja" p-readonly="true"></po-input>
-        </div>
-        <div class="po-md-12">
-          <po-input p-label="Nome" formControlName="nome" p-readonly="true"></po-input>
-        </div>
-        <div class="po-md-4">
-          <po-input p-label="CEP" formControlName="cep" p-readonly="true"></po-input>
-        </div>
-        <div class="po-md-8">
-          <po-input p-label="Endereço" formControlName="endereco" p-readonly="true"></po-input>
-        </div>
-        <div class="po-md-3">
-          <po-input p-label="Número" formControlName="numero" p-readonly="true"></po-input>
-        </div>
-        <div class="po-md-9">
-          <po-input p-label="Complemento" formControlName="complemento" p-readonly="true"></po-input>
-        </div>
-        <div class="po-md-4">
-          <po-input p-label="Bairro" formControlName="bairro" p-readonly="true"></po-input>
-        </div>
-        <div class="po-md-6">
-          <po-input p-label="Cidade" formControlName="cidade" p-readonly="true"></po-input>
-        </div>
-        <div class="po-md-2">
-          <po-input p-label="Estado" formControlName="estado" p-readonly="true"></po-input>
-        </div>
-      </form>
-    </po-modal>
-
-    <!-- Modal para Atualização por CEP -->
-    <po-modal
-      p-title="Atualizar Endereço por CEP"
-      *ngIf="modalCep"
-      p-size="md"
-      (p-close)="fecharModalCep()">
-      
-      <div class="po-row">
-        <div class="po-md-12" *ngIf="clienteSelecionado">
-          <h5>Cliente: {{clienteSelecionado.codigo}}/{{clienteSelecionado.loja}} - {{clienteSelecionado.nome}}</h5>
-        </div>
-        
-        <div class="po-md-6">
-          <po-input
-            [(ngModel)]="novoCep"
-            p-label="Novo CEP"
-            p-required="true"
-            p-mask="99999-999"
-            p-placeholder="00000-000">
-          </po-input>
-        </div>
-        
-        <div class="po-md-6">
-          <po-button
-            p-label="Buscar e Atualizar"
-            [p-loading]="carregando"
-            (p-click)="atualizarApenasCep(novoCep)">
-          </po-button>
-        </div>
-        
-        <div class="po-md-12">
-          <p class="po-text-color-08">Digite o CEP e clique em 'Buscar e Atualizar' para atualizar automaticamente o endereço do cliente.</p>
-        </div>
+      <div class="po-md-6">
+        <po-input p-label="Loja" formControlName="loja" p-readonly="true"></po-input>
       </div>
-    </po-modal>
+      <div class="po-md-12">
+        <po-input p-label="Nome" formControlName="nome" p-readonly="true"></po-input>
+      </div>
+      <div class="po-md-4">
+        <po-input 
+          p-label="CEP" 
+          formControlName="cep" 
+          p-mask="99999-999"
+          (p-change)="buscarEnderecoPorCep($event)"></po-input>
+      </div>
+      <div class="po-md-8">
+        <po-input p-label="Endereço" formControlName="endereco"></po-input>
+      </div>
+      <div class="po-md-3">
+        <po-input p-label="Número" formControlName="numero"></po-input>
+      </div>
+      <div class="po-md-9">
+        <po-input p-label="Complemento" formControlName="complemento"></po-input>
+      </div>
+      <div class="po-md-4">
+        <po-input p-label="Bairro" formControlName="bairro"></po-input>
+      </div>
+      <div class="po-md-6">
+        <po-input p-label="Cidade" formControlName="cidade"></po-input>
+      </div>
+      <div class="po-md-2">
+        <po-input p-label="Estado" formControlName="estado"></po-input>
+      </div>
+    </form>
 
-  </po-page-default>
+    <div class="po-row">
+      <div class="po-md-12 po-text-right">
+        <po-button
+          p-label="Cancelar"
+          (p-click)="fecharModal()"
+          class="po-mr-1">
+        </po-button>
+        <po-button
+          p-label="Salvar"
+          [p-loading]="carregando"
+          (p-click)="salvarEndereco()">
+        </po-button>
+      </div>
+    </div>
+  </po-modal>
+
+  <!-- Modal de Visualização -->
+  <po-modal
+    p-title="Dados do Cliente"
+    *ngIf="modalVisualizacao"
+    p-size="lg"
+    (p-close)="fecharModalVisualizacao()">
+    
+    <form [formGroup]="form" class="po-row">
+      <div class="po-md-6">
+        <po-input p-label="Código" formControlName="codigo" p-readonly="true"></po-input>
+      </div>
+      <div class="po-md-6">
+        <po-input p-label="Loja" formControlName="loja" p-readonly="true"></po-input>
+      </div>
+      <div class="po-md-12">
+        <po-input p-label="Nome" formControlName="nome" p-readonly="true"></po-input>
+      </div>
+      <div class="po-md-4">
+        <po-input p-label="CEP" formControlName="cep" p-readonly="true"></po-input>
+      </div>
+      <div class="po-md-8">
+        <po-input p-label="Endereço" formControlName="endereco" p-readonly="true"></po-input>
+      </div>
+      <div class="po-md-3">
+        <po-input p-label="Número" formControlName="numero" p-readonly="true"></po-input>
+      </div>
+      <div class="po-md-9">
+        <po-input p-label="Complemento" formControlName="complemento" p-readonly="true"></po-input>
+      </div>
+      <div class="po-md-4">
+        <po-input p-label="Bairro" formControlName="bairro" p-readonly="true"></po-input>
+      </div>
+      <div class="po-md-6">
+        <po-input p-label="Cidade" formControlName="cidade" p-readonly="true"></po-input>
+      </div>
+      <div class="po-md-2">
+        <po-input p-label="Estado" formControlName="estado" p-readonly="true"></po-input>
+      </div>
+    </form>
+  </po-modal>
+
+  <!-- Modal para Atualização por CEP -->
+  <po-modal
+    p-title="Atualizar Endereço por CEP"
+    *ngIf="modalCep"
+    p-size="md"
+    (p-close)="fecharModalCep()">
+    
+    <div class="po-row">
+      <div class="po-md-12" *ngIf="clienteSelecionado">
+        <h5>Cliente: {{clienteSelecionado.codigo}}/{{clienteSelecionado.loja}} - {{clienteSelecionado.nome}}</h5>
+      </div>
+      
+      <div class="po-md-6">
+        <po-input
+          [(ngModel)]="novoCep"
+          p-label="Novo CEP"
+          p-required="true"
+          p-mask="99999-999"
+          p-placeholder="00000-000">
+        </po-input>
+      </div>
+      
+      <div class="po-md-6">
+        <po-button
+          p-label="Buscar e Atualizar"
+          [p-loading]="carregando"
+          (p-click)="atualizarApenasCep(novoCep)">
+        </po-button>
+      </div>
+      
+      <div class="po-md-12">
+        <p class="po-text-color-08">Digite o CEP e clique em 'Buscar e Atualizar' para atualizar automaticamente o endereço do cliente.</p>
+      </div>
+    </div>
+  </po-modal>
 </div>

@@ -146,6 +146,10 @@ export class ClienteEnderecoComponent implements OnInit {
     });
   }
 
+  atualizarLista(): void {
+    this.carregarClientes();
+  }
+
   editarEndereco(cliente: Cliente): void {
     this.clienteSelecionado = cliente;
     this.form.patchValue({
