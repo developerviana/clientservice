@@ -33,8 +33,8 @@ WsRestful WSCLIENTE Description "API REST para clientes" Format APPLICATION_JSON
 
 	WSMETHOD PUT ALTERARCLIENTE ; 
 		DESCRIPTION "Alterar cliente" ;
-		PATH "/clientes/{codigo}/{loja}" ;
-		WSSYNTAX "clientes/{codigo}/{loja}";
+		PATH "/{codigo}/{loja}" ;
+		WSSYNTAX "{codigo}/{loja}";
 
 	WSMETHOD DELETE EXCLUIRCLIENTE ; 
 		DESCRIPTION "Excluir cliente" ;
@@ -184,6 +184,8 @@ WSMETHOD PUT ALTERARCLIENTE WSSERVICE WSCLIENTE
 
 	jsonBody["codigo"] := cCodigo
 	jsonBody["loja"] := cLoja
+
+	ConsultaCEP(jsonBody["cep"])
 
 	If jsonToken <> NIL
 		If !fPermissoes(jsonToken, "CLIENTE", "alterar")
@@ -463,7 +465,6 @@ Static Function ExecutaMsCliente(jsonBody, nOpcAuto)
 	Local xRet      := JsonObject():New()
 	Local xValida   
 
-	// Ajusta mensagem padrão conforme operação
 	Do Case
 		Case nOpcAuto == 3
 			xRet["mensagem"] := "Cliente incluído com sucesso"
@@ -638,3 +639,46 @@ Static Function ValidaCamposJson(jsonBody)
 	Next
 
 Return xRet
+
+Static Function ConsultaCEP(cCEP)
+    Local aArea        := FWGetArea()
+    Local aHeader      := {}
+    Local oRestClient  := FWRest():New("https://viacep.com.br/ws")
+    Local oJson        := JsonObject():New()
+    Local oResult      := Nil
+    Local cMensagem    := ""
+    Local cResp        := ""
+
+
+    aAdd(aHeader, 'User-Agent: Mozilla/4.0 (compatible; Protheus ' + GetBuild() + ')')
+    aAdd(aHeader, 'Content-Type: application/json; charset=utf-8')
+
+    oRestClient:SetPath("/" + cCEP + "/json/")
+
+    If oRestClient:Get(aHeader)
+        cResp := oRestClient:GetResult()
+
+        If Empty(cResp)
+            ConOut("[ViaCEP][ERRO] Resposta vazia para CEP: " + cCEP)
+            FWRestArea(aArea)
+            Return Nil
+        EndIf
+
+        oJson:FromJson(cResp)
+
+        If oJson:GetJsonObject("erro") == "true"
+            cMensagem := "O CEP informado no cadastro de cliente não consta na base de dados da consulta pública."
+            ConOut("[ViaCEP][ERRO] " + cMensagem + " CEP: " + cCEP)
+            FWRestArea(aArea)
+            Return Nil
+        EndIf
+    Else
+        ConOut("[ViaCEP][ERRO] Falha na comunicação com o serviço para CEP: " + cCEP)
+        FWRestArea(aArea)
+        Return Nil
+    EndIf
+
+    oResult := oJson
+
+    FWRestArea(aArea)
+Return oResult
