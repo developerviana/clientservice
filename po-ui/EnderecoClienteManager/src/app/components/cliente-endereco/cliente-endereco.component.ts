@@ -132,34 +132,21 @@ export class ClienteEnderecoComponent implements OnInit {
   }
 
   carregarClientes(): void {
-    console.log('🔄 Iniciando carregamento de clientes...');
     this.carregando = true;
     this.clienteService.listarClientes().subscribe({
       next: (response: any) => {
-        console.log('📡 Resposta bruta da API:', response);
-        console.log('📊 Tipo da resposta:', typeof response);
-        console.log('📋 É array?', Array.isArray(response));
-        
         // Verificar se a resposta tem a estrutura esperada
         if (response && response.dados && Array.isArray(response.dados)) {
           this.clientes = response.dados;
-          console.log('✅ Dados extraídos:', this.clientes);
         } else if (Array.isArray(response)) {
           this.clientes = response;
-          console.log('✅ Dados são array direto:', this.clientes);
         } else {
-          console.log('❌ Estrutura de dados não reconhecida');
           this.clientes = [];
         }
-        
-        console.log('📝 Clientes finais:', this.clientes);
-        console.log('📊 Quantidade de clientes:', this.clientes.length);
-        console.log('🏷️ Colunas da tabela:', this.tableColumns);
         
         this.carregando = false;
       },
       error: (error: any) => {
-        console.error('❌ Erro ao carregar clientes:', error);
         this.carregando = false;
         this.notification.error('Erro ao carregar lista de clientes');
       }
@@ -204,7 +191,6 @@ export class ClienteEnderecoComponent implements OnInit {
           this.notification.success('Endereço encontrado!');
         },
         error: (error: any) => {
-          console.error('Erro ao buscar CEP:', error);
           this.notification.warning('CEP não encontrado.');
           this.carregando = false;
         }
@@ -229,7 +215,6 @@ export class ClienteEnderecoComponent implements OnInit {
           this.carregando = false;
         },
         error: (error: any) => {
-          console.error('Erro ao salvar endereço:', error);
           this.notification.error('Erro ao salvar endereço.');
           this.carregando = false;
         }
@@ -326,14 +311,12 @@ export class ClienteEnderecoComponent implements OnInit {
             this.carregando = false;
           },
           error: (error: any) => {
-            console.error('Erro ao atualizar endereço:', error);
             this.notification.error('Erro ao atualizar endereço.');
             this.carregando = false;
           }
         });
       },
       error: (error: any) => {
-        console.error('Erro ao buscar CEP:', error);
         this.notification.warning('CEP não encontrado.');
         this.carregando = false;
       }
@@ -384,7 +367,6 @@ export class ClienteEnderecoComponent implements OnInit {
           this.notification.success('Endereço encontrado!');
         },
         error: (error: any) => {
-          console.error('Erro ao buscar CEP:', error);
           this.notification.warning('CEP não encontrado.');
           this.carregando = false;
         }

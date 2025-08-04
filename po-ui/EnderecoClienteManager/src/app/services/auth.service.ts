@@ -33,26 +33,17 @@ export class AuthService {
    * Autentica usando Basic Auth
    */
   authenticateBasic(username?: string, password?: string): Observable<AuthToken> {
-    console.log('Iniciando autenticação para:', username);
-    
-    let basicToken: string;
-    
-    if (username && password) {
-      basicToken = btoa(`${username}:${password}`);
-      console.log('Token Basic Auth gerado para:', username);
-    } else if (environment.totvs.basicAuthToken) {
-      basicToken = environment.totvs.basicAuthToken;
-      console.log('Usando token do environment');
-    } else {
-      console.error('Credenciais não configuradas');
+    if (!username || !password) {
       return new Observable(observer => {
-        observer.error(new Error('Credenciais não configuradas'));
+        observer.error(new Error('Usuário e senha são obrigatórios'));
       });
     }
 
+    // Gera o token Basic Auth em tempo de execução
+    const basicToken = btoa(`${username}:${password}`);
+
     // Por enquanto, vamos apenas validar se as credenciais são admin/msadm
     if (username === 'admin' && password === 'msadm') {
-      console.log('Credenciais válidas - admin/msadm');
       const authToken: AuthToken = {
         token: basicToken,
         expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 horas
@@ -60,10 +51,8 @@ export class AuthService {
       };
 
       this.setToken(authToken);
-      console.log('Token salvo com sucesso');
       return of(authToken);
     } else {
-      console.log('Credenciais inválidas:', username);
       return new Observable(observer => {
         observer.error(new Error('Credenciais inválidas'));
       });
@@ -88,7 +77,6 @@ export class AuthService {
         return authToken;
       }),
       catchError(error => {
-        console.error('Erro na autenticação JWT:', error);
         // Fallback para Basic Auth
         return this.authenticateBasic(credentials.username, credentials.password);
       })
@@ -181,7 +169,6 @@ export class AuthService {
         }
       }
     } catch (error) {
-      console.error('Erro ao carregar token salvo:', error);
       localStorage.removeItem(this.AUTH_STORAGE_KEY);
     }
   }

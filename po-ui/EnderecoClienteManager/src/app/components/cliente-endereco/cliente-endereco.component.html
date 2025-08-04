@@ -18,9 +18,12 @@
 
   <!-- Container da lista de clientes -->
   <div class="clientes-lista-container">
-    <h2>Lista de Clientes</h2>
-    <div class="po-row po-mb-2">
-      <div class="po-md-12 po-text-right">
+    
+    <div class="po-row po-mb-2" style="align-items: center;">
+      <div class="po-md-6">
+        <h2 class="po-m-0" style="text-align: left;">Gerenciamento de Endereços</h2>
+      </div>
+      <div class="po-md-6 po-text-right">
         <po-button
           p-label="Atualizar Lista"
           p-icon="po-icon-refresh"
@@ -28,6 +31,8 @@
         </po-button>
       </div>
     </div>
+
+
     <div class="content-centered">
       <div class="table-container">
         <po-table
@@ -38,7 +43,7 @@
           p-sort="true"
           p-striped="true"
           p-show-more-disabled="false"
-          [p-height]="400">
+          [p-height]="500">
         </po-table>
       </div>
     </div>

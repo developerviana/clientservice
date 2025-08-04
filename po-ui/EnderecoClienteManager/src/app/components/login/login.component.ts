@@ -174,26 +174,19 @@ export class LoginComponent implements OnInit {
       return;
     }
     
-    console.log('Tentativa de login iniciada');
-    console.log('Form válido:', this.loginForm.valid);
-    console.log('Valores do form:', this.loginForm.value);
-    
     if (this.loginForm.valid) {
       this.loading = true;
       
       const { username, password } = this.loginForm.value;
-      console.log('Credenciais:', { username, password: '***' });
       
       try {
         this.authService.authenticateBasic(username, password).subscribe({
           next: (result) => {
-            console.log('Login bem-sucedido:', result);
             this.loading = false;
             this.notification.success('Login realizado com sucesso!');
             this.router.navigate([this.returnUrl]);
           },
           error: (error) => {
-            console.error('Erro no login (subscribe):', error);
             this.loading = false;
             
             if (error.message === 'Credenciais inválidas') {
@@ -206,12 +199,10 @@ export class LoginComponent implements OnInit {
           }
         });
       } catch (error) {
-        console.error('Erro no login (try/catch):', error);
         this.loading = false;
         this.notification.error('Erro ao fazer login. Verifique suas credenciais.');
       }
     } else {
-      console.log('Formulário inválido');
       this.notification.warning('Preencha todos os campos obrigatórios.');
     }
   }

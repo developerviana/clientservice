@@ -24,7 +24,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  max-width: 1200px;
+  max-width: 1400px; // Aumentado de 1200px para 1400px
   margin: 0 auto;
 }
 
@@ -65,7 +65,7 @@
 // Estilização da página
 ::ng-deep .po-page-default {
   background: transparent !important;
-  max-width: 1200px !important;
+  max-width: 1400px !important; // Aumentado de 1200px para 1400px
   margin: 0 auto !important;
   padding: 0 20px !important;
   
@@ -91,7 +91,7 @@
 
 // Container da lista de clientes
 .clientes-lista-container {
-  max-width: 1200px;
+  max-width: 1400px; // Aumentado de 1200px para 1400px
   margin: 0 auto;
   padding: 0 20px;
   
@@ -107,7 +107,7 @@
 
 // Container centralizado com visual moderno
 .content-centered {
-  max-width: 1200px;
+  max-width: 1400px; // Aumentado de 1200px para 1400px
   margin: 0 auto;
   padding: 0 20px;
 }
@@ -120,6 +120,7 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.2);
   margin-bottom: 20px;
+  min-height: 500px; // Adicionado altura mínima
 }
 
 // Estilização da tabela

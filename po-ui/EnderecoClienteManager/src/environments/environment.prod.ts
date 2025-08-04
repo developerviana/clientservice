@@ -5,7 +5,8 @@ export const environment = {
     timeout: 30000
   },
   totvs: {
-    basicAuthToken: btoa('admin:msadm'),
+    // basicAuthToken deve ser definido em tempo de execução, não no código fonte
+    basicAuthToken: '',
     company: '99',
     branch: '01'
   }
