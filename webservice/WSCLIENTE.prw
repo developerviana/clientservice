@@ -54,22 +54,25 @@ WSMETHOD POST INCLUIRCLIENTE WSSERVICE WSCLIENTE
 	Local cFilParam      := IIf(Self:FILIAL <> Nil, Self:FILIAL, "01")
 	Local aMapCampos     := {}
 
-		aMapCampos := { ;
+	aMapCampos := { ;
 		{"A1_COD",      "codigo"}, ;
 		{"A1_LOJA",     "loja"}, ;
 		{"A1_NOME",     "nome"}, ;
 		{"A1_NREDUZ",   "nomeReduzido"}, ;
+		{"A1_PESSOA",   "tipoPessoa"}, ;
+		{"A1_TIPO",     "tipo"}, ;
 		{"A1_END",      "endereco"}, ;
 		{"A1_BAIRRO",   "bairro"}, ;
 		{"A1_EST",      "estado"}, ;
 		{"A1_MUN",      "cidade"}, ;
+		{"A1_COD_MUN",  "codigoIbge"}, ;
 		{"A1_CEP",      "cep"}, ;
 		{"A1_INSCR",    "inscricaoEstadual"}, ;
 		{"A1_CGC",      "cpfCnpj"}, ;
 		{"A1_PAIS",     "pais"}, ;
 		{"A1_EMAIL",    "email"}, ;
 		{"A1_DDD",      "ddd"}, ;
-		{"A1_TEL",      "telefone"}}
+		{"A1_TEL",      "telefone"} }
 
 	ConOut("[WSCLIENTE][POST] Iniciando inclusão de cliente")
 	ConOut("[WSCLIENTE][POST] Body recebido: " + cBody)
@@ -369,10 +372,10 @@ Static Function ExecutaMsCliente(jsonBody, nOpcAuto, aMapCampos)
 	Local aSA1Auto     := {}
 	Local aAI0Auto     := {}
 	Local xRet         := JsonObject():New()
-	Local xValor       := Nil
-	Local nI           := 0
-	Local cCampoTabela := ""
-	Local cCampoJson   := ""
+    Local oModel    := Nil
+    Local oSA1Mod   := Nil
+    Local lDeuCerto := .F.
+    Local aErro     := {}
 
 	Private lMsErroAuto := .F.
 
@@ -383,73 +386,131 @@ Static Function ExecutaMsCliente(jsonBody, nOpcAuto, aMapCampos)
 
     If nOpcAuto == 3  // INCLUSÃO
 
-        ConOut("Teste de Inclusao")
-        ConOut("Inicio: " + Time())
+		ConOut("Teste de Inclusao")
+		ConOut("Inicio: " + Time())
 
-        // Preenche array SA1
-        For nI := 1 To Len(aMapCampos)
-            cCampoTabela := aMapCampos[nI][1]
-            cCampoJson   := aMapCampos[nI][2]
+		oModel := FWLoadModel("CRMA980") 
+		oModel:SetOperation(3)
+		oModel:Activate()
 
-            xValor := IIf(jsonBody:HasProperty(cCampoJson), jsonBody[cCampoJson], "")
-            AAdd(aSA1Auto, {cCampoTabela, xValor, Nil})
-        Next
+		oSA1Mod := oModel:getModel("SA1MASTER")
+		
+		oSA1Mod:setValue("A1_COD",       jsonBody["codigo"]        ) 
+		oSA1Mod:setValue("A1_LOJA",      jsonBody["loja"]          ) 
+		oSA1Mod:setValue("A1_NOME",      jsonBody["nome"]          )            
+		oSA1Mod:setValue("A1_NREDUZ",    jsonBody["nomeReduzido"]  ) 
+		oSA1Mod:setValue("A1_END",       jsonBody["endereco"]      ) 
+		oSA1Mod:setValue("A1_BAIRRO",    jsonBody["bairro"]        ) 
+		oSA1Mod:setValue("A1_TIPO",      jsonBody["tipo"]          ) 
+		oSA1Mod:setValue("A1_EST",       jsonBody["estado"]        ) 
+		oSA1Mod:setValue("A1_COD_MUN",   jsonBody["cod_ibge"]      )                
+		oSA1Mod:setValue("A1_MUN",       jsonBody["cidade"]        ) 
+		oSA1Mod:setValue("A1_CEP",       jsonBody["cep"]           ) 
+		oSA1Mod:setValue("A1_INSCR",     jsonBody["inscricaoEstadual"]) 
+		oSA1Mod:setValue("A1_CGC",       jsonBody["cpfCnpj"]       )           
+		oSA1Mod:setValue("A1_PAIS",      jsonBody["pais"]          )       
+		oSA1Mod:setValue("A1_EMAIL",     jsonBody["email"]         ) 
+		oSA1Mod:setValue("A1_DDD",       jsonBody["ddd"]           )      
+		oSA1Mod:setValue("A1_TEL",       jsonBody["telefone"]      )              
+		oSA1Mod:setValue("A1_PESSOA",    jsonBody["tipoPessoa"]    ) 
+    
+		If oModel:VldData()
 
-        ConOut("Passou pelo Array da SA1")
-
-        // Complemento AI0
-        If jsonBody:HasProperty("saldo")
-            AAdd(aAI0Auto, {"AI0_SALDO", jsonBody["saldo"], Nil})
-            ConOut("Passou pelo Array da AI0")
-        EndIf
-
-        ConOut("Iniciando a gravacao")
-        MsExecAuto({|a,b,c| CRMA980(a,b,c)}, aSA1Auto, nOpcAuto, aAI0Auto)
-
-        If lMsErroAuto
-            xRet["erro"] := .T.
-            xRet["sucesso"] := .F.
-            xRet["mensagem"] := MostraErro()[6]
-            MostraErro()
-        Else
-            ConOut("Cliente incluído com sucesso!")
-            xRet["mensagem"] := "Cliente incluído com sucesso"
-        EndIf
-
-        ConOut("Fim: " + Time())
+			If oModel:CommitData()
+				lDeuCerto := .T.
+				ConOut("[WSERVICE] Cliente incluído com sucesso!")
+				xRet["mensagem"] := "[WSERVICE] Cliente incluído com sucesso"
+			Else
+				lDeuCerto := .F.
+				ConOut("[WSERVICE] Erro no CommitData")
+			EndIf
+			
+		Else
+			lDeuCerto := .F.
+			ConOut("[WSERVICE] Erro na validação dos dados")
+		EndIf
+		
+		If !lDeuCerto
+			aErro := oModel:GetErrorMessage()
+			
+			ConOut("[INCLUSAO][ERRO] Id do formulário de origem: " + AllToChar(aErro[01]))
+			ConOut("[INCLUSAO][ERRO] Id do campo de origem: " + AllToChar(aErro[02]))
+			ConOut("[INCLUSAO][ERRO] Id do formulário de erro: " + AllToChar(aErro[03]))
+			ConOut("[INCLUSAO][ERRO] Id do campo de erro: " + AllToChar(aErro[04]))
+			ConOut("[INCLUSAO][ERRO] Id do erro: " + AllToChar(aErro[05]))
+			ConOut("[INCLUSAO][ERRO] Mensagem do erro: " + AllToChar(aErro[06]))
+			ConOut("[INCLUSAO][ERRO] Mensagem da solução: " + AllToChar(aErro[07]))
+			ConOut("[INCLUSAO][ERRO] Valor atribuído: " + AllToChar(aErro[08]))
+			ConOut("[INCLUSAO][ERRO] Valor anterior: " + AllToChar(aErro[09]))
+			
+			xRet["erro"] := .T.
+			xRet["sucesso"] := .F.
+			xRet["mensagem"] := AllToChar(aErro[06])
+		EndIf
+		
+		oModel:DeActivate()
+		
+		ConOut("Fim: " + Time())
 
     ElseIf nOpcAuto == 4  // ALTERAÇÃO
 
-        ConOut("Teste de Alteracao")
-        ConOut("Inicio: " + Time())
+	ConOut("Teste de Inclusao")
+		ConOut("Inicio: " + Time())
 
-        // Preenche array SA1
-        For nI := 1 To Len(aMapCampos)
-            cCampoTabela := aMapCampos[nI][1]
-            cCampoJson   := aMapCampos[nI][2]
+		oModel := FWLoadModel("CRMA980") 
+		oModel:SetOperation(4)
+		oModel:Activate()
 
-            xValor := IIf(jsonBody:HasProperty(cCampoJson), jsonBody[cCampoJson], "")
-            AAdd(aSA1Auto, {cCampoTabela, xValor, Nil})
-        Next
+		oSA1Mod := oModel:getModel("SA1MASTER")
+		
+		oSA1Mod:setValue("A1_COD",       jsonBody["codigo"]        ) 
+		oSA1Mod:setValue("A1_LOJA",      jsonBody["loja"]          ) 
+		oSA1Mod:setValue("A1_NOME",      jsonBody["nome"]          )        
+		oSA1Mod:setValue("A1_NREDUZ",    jsonBody["nomeReduzido"]  ) 
+		oSA1Mod:setValue("A1_END",       jsonBody["endereco"]      ) 
+		oSA1Mod:setValue("A1_EST",       jsonBody["estado"]        ) 
+		oSA1Mod:setValue("A1_MUN",       jsonBody["cidade"]        )
+		oSA1Mod:setValue("A1_CEP",       jsonBody["cep"]           ) 
+		oSA1Mod:setValue("A1_PAIS",      jsonBody["pais"]          ) 
+		
+		If oModel:VldData()
 
-		If jsonBody:HasProperty("saldo")
-            AAdd(aAI0Auto, {"AI0_SALDO", 30, Nil})
-        ConOut("Passou pelo Array da AI0")
-
-        ConOut("Iniciando a alteracao")
-        MsExecAuto({|a,b,c| CRMA980(a,b,c)}, aSA1Auto, nOpcAuto, aAI0Auto)
-
-        If lMsErroAuto
-            xRet["erro"] := .T.
-            xRet["sucesso"] := .F.
-            xRet["mensagem"] := MostraErro()[6]
-            MostraErro()
-        Else
-            ConOut("Cliente alterado com sucesso!")
-            xRet["mensagem"] := "Cliente alterado com sucesso"
-        EndIf
-
-        ConOut("Fim: " + Time())
+			If oModel:CommitData()
+				lDeuCerto := .T.
+				ConOut("[WSERVICE] Cliente incluído com sucesso!")
+				xRet["mensagem"] := "[WSERVICE] Cliente incluído com sucesso"
+				
+			Else
+				lDeuCerto := .F.
+				ConOut("[WSERVICE] Erro no CommitData")
+			EndIf
+			
+		Else
+			lDeuCerto := .F.
+			ConOut("[WSERVICE] Erro na validação dos dados")
+		EndIf
+		
+		If !lDeuCerto
+			aErro := oModel:GetErrorMessage()
+			
+			ConOut("[INCLUSAO][ERRO] Id do formulário de origem: " + AllToChar(aErro[01]))
+			ConOut("[INCLUSAO][ERRO] Id do campo de origem: " + AllToChar(aErro[02]))
+			ConOut("[INCLUSAO][ERRO] Id do formulário de erro: " + AllToChar(aErro[03]))
+			ConOut("[INCLUSAO][ERRO] Id do campo de erro: " + AllToChar(aErro[04]))
+			ConOut("[INCLUSAO][ERRO] Id do erro: " + AllToChar(aErro[05]))
+			ConOut("[INCLUSAO][ERRO] Mensagem do erro: " + AllToChar(aErro[06]))
+			ConOut("[INCLUSAO][ERRO] Mensagem da solução: " + AllToChar(aErro[07]))
+			ConOut("[INCLUSAO][ERRO] Valor atribuído: " + AllToChar(aErro[08]))
+			ConOut("[INCLUSAO][ERRO] Valor anterior: " + AllToChar(aErro[09]))
+			
+			xRet["erro"] := .T.
+			xRet["sucesso"] := .F.
+			xRet["mensagem"] := AllToChar(aErro[06])
+		EndIf
+		
+		oModel:DeActivate()
+		
+		ConOut("Fim: " + Time())
 
 	ElseIf nOpcAuto == 5  // EXCLUSÃO
 
@@ -468,15 +529,16 @@ Static Function ExecutaMsCliente(jsonBody, nOpcAuto, aMapCampos)
 			xRet["sucesso"] := .F.
 			xRet["mensagem"] := MostraErro()[6]
 			MostraErro()
+			Return xRet
 		Else
 			ConOut("Cliente excluído com sucesso!")
-			xRet["mensagem"] := "Cliente excluído com sucesso"
+			xRet["mensagem"] := "[WSERVICE]Cliente excluído com sucesso"
+			xRet["codigo"]   := jsonBody["codigo"]
+			Return xRet
 		EndIf
 
 		ConOut("Fim: " + Time())
 
 	EndIf
-
-EndIf
 
 Return xRet
