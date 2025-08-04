@@ -37,9 +37,9 @@ WsRestful WSCLIENTE Description "API REST para clientes" Format APPLICATION_JSON
 
 	WSMETHOD DELETE EXCLUIRCLIENTE ; 
 		DESCRIPTION "Excluir cliente" ;
-		PATH "/{codigo}/{loja}";
-		WSSYNTAX "{codigo}/{loja}";
-
+		PATH "/clientes" ;
+		WSSYNTAX "clientes";
+		
 End WsRestful
 
 /*******************************************************************************/
@@ -61,9 +61,7 @@ WSMETHOD POST INCLUIRCLIENTE WSSERVICE WSCLIENTE
 		{"A1_NREDUZ",   "nomeReduzido"}, ;
 		{"A1_END",      "endereco"}, ;
 		{"A1_BAIRRO",   "bairro"}, ;
-		{"A1_TIPO",     "tipo"}, ;
 		{"A1_EST",      "estado"}, ;
-		{"A1_COD_MUN",  "cod_ibge"}, ;
 		{"A1_MUN",      "cidade"}, ;
 		{"A1_CEP",      "cep"}, ;
 		{"A1_INSCR",    "inscricaoEstadual"}, ;
@@ -71,8 +69,7 @@ WSMETHOD POST INCLUIRCLIENTE WSSERVICE WSCLIENTE
 		{"A1_PAIS",     "pais"}, ;
 		{"A1_EMAIL",    "email"}, ;
 		{"A1_DDD",      "ddd"}, ;
-		{"A1_TEL",      "telefone"}, ;
-		{"A1_PESSOA",   "tipoPessoa"} }
+		{"A1_TEL",      "telefone"}}
 
 	ConOut("[WSCLIENTE][POST] Iniciando inclusão de cliente")
 	ConOut("[WSCLIENTE][POST] Body recebido: " + cBody)
@@ -87,7 +84,7 @@ WSMETHOD POST INCLUIRCLIENTE WSSERVICE WSCLIENTE
 	End Sequence
 
 	If jsonToken <> Nil
-		If !fPermissoes(jsonToken, "CLIENTE", "incluir")
+		If !ClienteMsExecService():fPermissoes(jsonToken, "CLIENTE", "incluir")
 			SetRestFault(403, "O usuário não tem permissão de incluir cliente.")
 			Return .F.
 		EndIf
@@ -209,10 +206,10 @@ WSMETHOD PUT ALTERARCLIENTE WSSERVICE WSCLIENTE
 	jsonBody["codigo"] := cCodigo
 	jsonBody["loja"] := cLoja
 
-	oConsultaCEP := ConsultaCEP(jsonBody["cep"])
+	oConsultaCEP := ClienteMsExecService():ConsultaCEP(jsonBody["cep"])
 
 	If jsonToken <> NIL
-		If !fPermissoes(jsonToken, "CLIENTE", "alterar")
+		If !ClienteMsExecService():fPermissoes(jsonToken, "CLIENTE", "alterar")
 			SetRestFault(403, "O usuário não tem permissão de alterar cliente.")	
 			Return .F.
 		EndIf
@@ -279,7 +276,7 @@ WSMETHOD DELETE EXCLUIRCLIENTE WSSERVICE WSCLIENTE
 	jsonBody:FromJson(cBody)
 
 	If jsonToken <> Nil
-		If fPermissoes(jsonToken, "CLIENTE")
+		If ClienteMsExecService():fPermissoes(jsonToken, "CLIENTE")
 			xResponse := ExecutaMsCliente(jsonBody, nOpcAuto, aMapCampos)
 			If !xResponse["erro"]
 				::SetResponse(xResponse:ToJson())
@@ -304,40 +301,6 @@ WSMETHOD DELETE EXCLUIRCLIENTE WSSERVICE WSCLIENTE
 	::SetContentType("application/json; charset=utf-8")
 Return lRet
 
-/********************************************************************************************************/
-/** Verifica se o usuário pode realizar determinada ação sobre os Clientes
-/********************************************************************************************************/
-Static Function fPermissoes(jsonToken, cOrigem, cAcao)
-	Local lPode := .F.
-
-	If FWIsAdmin()
-		Return .T.
-	EndIf
-
-	If jsonToken == Nil .Or. Empty(cOrigem) .Or. Empty(cAcao)
-		Return .F.
-	EndIf
-
-	If jsonToken:Has("modulos") .And. jsonToken:GetJsonObject("modulos"):Has(cOrigem)
-		lPode := jsonToken:GetJsonObject("modulos"):GetJsonObject(cOrigem):GetLogical(cAcao)
-	Else
-		ConOut("[PERMISSAO] Permissão não definida para " + cOrigem + "/" + cAcao)
-	EndIf
-
-Return lPode
-
-
-/********************************************************************************************************/
-/** Função para obter token web (simplificada)
-/********************************************************************************************************/
-Static Function GetWebToken(cToken)
-	Local oToken := JsonObject():New()
-	
-	// Implementação simplificada
-	oToken["USUARIO"] := "ADMIN"
-	oToken["FILIAL"] := "01"
-	
-Return oToken
 
 
 /********************************************************************************************************/
@@ -397,29 +360,6 @@ Static Function ExcluirCliente(jsonBody)
 	EndIf
 
 	RestArea(aAreaAnt)
-Return xRet
-
-/********************************************************************************************************/
-/** Verifica campos obrigatórios no JSON
-/********************************************************************************************************/
-Static Function fValidaCamposObrig(jsonBody, aCampos)
-	Local xRet := JsonObject():New()
-	Local nI := 0
-	Local cCampo := ""
-
-	xRet["erro"] := .F.
-	xRet["mensagem"] := ""
-
-	For nI := 1 To Len(aCampos)
-		cCampo := aCampos[nI]
-		If Empty(jsonBody[cCampo])
-			xRet["erro"] := .T.
-			xRet["mensagem"] := "Campo obrigatório ausente: " + cCampo
-			xRet["campo"] := cCampo
-			Exit
-		EndIf
-	Next
-
 Return xRet
 
 /********************************************************************************************************/
@@ -540,115 +480,3 @@ Static Function ExecutaMsCliente(jsonBody, nOpcAuto, aMapCampos)
 EndIf
 
 Return xRet
-
-
-
-/********************************************************************************************************/
-/** Valida campos do JSON de acordo com a estrutura da tabela SA1
-/********************************************************************************************************/
-Static Function ValidaCamposJson(jsonBody, aMapCampos) 
-	Local aCampos     := {}
-	Local cCampoJson  := ""
-	Local xValorJson  := Nil
-	Local cTipo       := ""
-	Local nTamanho    := 0
-	Local nDecimais   := 0
-	Local xRet        := JsonObject():New()
-	Local nIdx        := 0
-	Local cNomeTabela := ""
-
-	xRet["erro"]     := .F.
-	xRet["mensagem"] := ""
-
-	DbSelectArea("SA1")
-	SA1->(DbSetOrder(1))
-	aCampos := SA1->(DbStruct())
-
-	For nI := 1 To Len(aMapCampos)
-		aItem := aMapCampos[nI]
-		cNomeTabela := aItem[1]
-		cCampoJson  := aItem[2]
-		xValorJson  := jsonBody[cCampoJson]
-		nIdx := AScan(aCampos, {|x| x[1] == cNomeTabela})
-
-		If nIdx <= 0
-			ConOut("[WSCLIENTE][VALIDA] Campo não encontrado na tabela: " + cNomeTabela)
-			Loop
-		EndIf
-
-		cTipo     := aCampos[nIdx][2]
-		nTamanho  := aCampos[nIdx][3]
-		nDecimais := aCampos[nIdx][4]
-
-		// Validação de tipo
-		Do Case
-			Case cTipo == "C" .And. ValType(xValorJson) != "C"
-				xRet["erro"] := .T.
-				xRet["mensagem"] := "Campo " + cCampoJson + " deveria ser caractere."
-				Exit
-
-			Case cTipo == "N" .And. ValType(xValorJson) != "N" .And. !IsNumeric(xValorJson)
-				xRet["erro"] := .T.
-				xRet["mensagem"] := "Campo " + cCampoJson + " deveria ser numérico."
-				Exit
-
-			Case cTipo == "D" .And. !Empty(xValorJson) .And. !IsDate(xValorJson)
-				xRet["erro"] := .T.
-				xRet["mensagem"] := "Campo " + cCampoJson + " deveria ser data."
-				Exit
-		EndCase
-
-		If cTipo == "C" .And. Len(AllTrim(xValorJson)) > nTamanho
-			xRet["erro"] := .T.
-			xRet["mensagem"] := "Campo " + cCampoJson + " excede o tamanho máximo de " + AllTrim(Str(nTamanho)) + " caracteres."
-			Exit
-		EndIf
-	Next
-
-Return xRet
-
-/********************************************************************************************************/
-/** Consulta CEP via ViaCEP
-/********************************************************************************************************/
-Static Function ConsultaCEP(cCEP)
-    Local aArea        := FWGetArea()
-    Local aHeader      := {}
-    Local oRestClient  := FWRest():New("https://viacep.com.br/ws")
-    Local oJson        := JsonObject():New()
-    Local oResult      := Nil
-    Local cMensagem    := ""
-    Local cResp        := ""
-
-
-    aAdd(aHeader, 'User-Agent: Mozilla/4.0 (compatible; Protheus ' + GetBuild() + ')')
-    aAdd(aHeader, 'Content-Type: application/json; charset=utf-8')
-
-    oRestClient:SetPath("/" + cCEP + "/json/")
-
-    If oRestClient:Get(aHeader)
-        cResp := oRestClient:GetResult()
-
-        If Empty(cResp)
-            ConOut("[ViaCEP][ERRO] Resposta vazia para CEP: " + cCEP)
-            FWRestArea(aArea)
-            Return Nil
-        EndIf
-
-        oJson:FromJson(cResp)
-
-        If oJson:GetJsonObject("erro") == "true"
-            cMensagem := "O CEP informado no cadastro de cliente não consta na base de dados da consulta pública."
-            ConOut("[ViaCEP][ERRO] " + cMensagem + " CEP: " + cCEP)
-            FWRestArea(aArea)
-            Return Nil
-        EndIf
-    Else
-        ConOut("[ViaCEP][ERRO] Falha na comunicação com o serviço para CEP: " + cCEP)
-        FWRestArea(aArea)
-        Return Nil
-    EndIf
-
-    oResult := oJson
-
-    FWRestArea(aArea)
-Return oResult

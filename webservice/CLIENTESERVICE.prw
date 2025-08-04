@@ -4,211 +4,258 @@
 /*------------------------------------------------------------------------//
 //Programa:  CLIENTESERVICE
 //Autor:     Victor
-//Descricao: Service para operações de cliente via MsExecAuto CRMA980
+//Descricao: Service para operações de cliente
 //------------------------------------------------------------------------*/
 
 CLASS ClienteMsExecService
     METHOD New() CONSTRUCTOR
-    METHOD IncluirCliente(oRequest)
-    METHOD AlterarCliente(oRequest)
-    METHOD ExcluirCliente(cCodigo, cLoja)
-    METHOD AtualizarEnderecoCEP(cCodigo, cLoja, cCEP)
+
     METHOD BuscarEnderecoCEP(cCEP)
     METHOD ValidarDados(oRequest, nOpcao)
-    METHOD MontarArrayCRMA980(oRequest, nOpcao)
-ENDCLASS
+    METHOD GetWebTokenService(cToken)
+    METHOD PermissoesClienteService(jsonToken, cOrigem, cAcao)
+    METHOD fValidaCamposObrig(jsonBody, aCampos)
+    METHOD ValidaCamposJson(jsonBody, aMapCampos)
 
+ENDCLASS
 
 METHOD New() CLASS ClienteMsExecService
 Return Self
 
+
+/********************************************************************************************************/
+/** Verifica se o usuário pode realizar determinada ação sobre os Clientes
+/********************************************************************************************************/
+METHOD PermissoesClienteService(jsonToken, cOrigem, cAcao) CLASS ClienteMsExecService
+	Local lPode := .F.
+
+	If FWIsAdmin()
+		Return .T.
+	EndIf
+
+	If jsonToken == Nil .Or. Empty(cOrigem) .Or. Empty(cAcao)
+		Return .F.
+	EndIf
+
+	If jsonToken:Has("modulos") .And. jsonToken:GetJsonObject("modulos"):Has(cOrigem)
+		lPode := jsonToken:GetJsonObject("modulos"):GetJsonObject(cOrigem):GetLogical(cAcao)
+	Else
+		ConOut("[PERMISSAO] Permissão não definida para " + cOrigem + "/" + cAcao)
+	EndIf
+
+Return lPode
+
 /*------------------------------------------------------------------------//
-// Incluir cliente 
+// Buscar endereço por CEP via API ViaCEP
 //------------------------------------------------------------------------*/
-METHOD IncluirCliente(oRequest) CLASS ClienteMsExecService
-    Local oResponse := JsonObject():New()
-    Local aCliente := {}
+METHOD BuscarEnderecoCEP(cCEP) CLASS ClienteMsExecService
+    Local aArea        := FWGetArea()
+    Local aHeader      := {}
+    Local oRestClient  := FWRest():New("https://viacep.com.br/ws")
+    Local oJson        := JsonObject():New()
+    Local oResult      := JsonObject():New()
+    Local cResp        := ""
+
+    oResult["erro"] := .F.
+    oResult["mensagem"] := ""
+
+    aAdd(aHeader, 'User-Agent: Mozilla/4.0 (compatible; Protheus ' + GetBuild() + ')')
+    aAdd(aHeader, 'Content-Type: application/json; charset=utf-8')
+
+    oRestClient:SetPath("/" + cCEP + "/json/")
+
+    If oRestClient:Get(aHeader)
+        cResp := oRestClient:GetResult()
+
+        If Empty(cResp)
+            ConOut("[ViaCEP][ERRO] Resposta vazia para CEP: " + cCEP)
+            oResult["erro"] := .T.
+            oResult["mensagem"] := "CEP não encontrado"
+            FWRestArea(aArea)
+            Return oResult
+        EndIf
+
+        oJson:FromJson(cResp)
+
+        If oJson:HasProperty("erro") .And. oJson["erro"] == .T.
+            ConOut("[ViaCEP][ERRO] CEP inválido: " + cCEP)
+            oResult["erro"] := .T.
+            oResult["mensagem"] := "CEP não encontrado na base de dados"
+            FWRestArea(aArea)
+            Return oResult
+        EndIf
+
+        // Copia os dados do retorno
+        oResult["cep"] := oJson["cep"]
+        oResult["logradouro"] := oJson["logradouro"]
+        oResult["bairro"] := oJson["bairro"]
+        oResult["localidade"] := oJson["localidade"]
+        oResult["uf"] := oJson["uf"]
+        
+    Else
+        ConOut("[ViaCEP][ERRO] Falha na comunicação com o serviço para CEP: " + cCEP)
+        oResult["erro"] := .T.
+        oResult["mensagem"] := "Erro na comunicação com serviço de CEP"
+    EndIf
+
+    FWRestArea(aArea)
+Return oResult
+
+/*------------------------------------------------------------------------//
+// Validar dados do request
+//------------------------------------------------------------------------*/
+METHOD ValidarDados(oRequest, nOpcao) CLASS ClienteMsExecService
     Local cErro := ""
-    Local oEndereco := Nil
-    Local oError
-
-    ConOut("[SERVICE][INCLUIR] Iniciando inclusão via CRMA980")
-
-    BEGIN SEQUENCE
-
-        cErro := Self:ValidarDados(oRequest, 3)
-        If !Empty(cErro)
-            oResponse["erro"] := .T.
-            oResponse["mensagem"] := cErro
-            BREAK
+    
+    // Validações básicas
+    If nOpcao == 4  // Alteração
+        If !oRequest:HasProperty("codigo") .Or. Empty(oRequest["codigo"])
+            cErro := "Campo 'codigo' é obrigatório"
+        ElseIf !oRequest:HasProperty("loja") .Or. Empty(oRequest["loja"])
+            cErro := "Campo 'loja' é obrigatório"
         EndIf
-
-        SA1->(DbSetOrder(1))
-        If SA1->(DbSeek(xFilial("SA1") + oRequest["codigo"] + oRequest["loja"]))
-            oResponse["erro"] := .T.
-            oResponse["mensagem"] := "Cliente já existe: " + oRequest["codigo"] + "-" + oRequest["loja"]
-            BREAK
+    EndIf
+    
+    // Validação de CEP se informado
+    If Empty(cErro) .And. oRequest:HasProperty("cep") .And. !Empty(oRequest["cep"])
+        If Len(AllTrim(oRequest["cep"])) != 8
+            cErro := "CEP deve conter 8 dígitos"
         EndIf
+    EndIf
 
-        If oRequest:HasProperty("cep") .And. !Empty(oRequest["cep"])
-            oEndereco := Self:BuscarEnderecoCEP(oRequest["cep"])
-            If !oEndereco["erro"]
-                oRequest["endereco"] := oEndereco["logradouro"]
-                oRequest["bairro"]   := oEndereco["bairro"]
-                oRequest["cidade"]   := oEndereco["localidade"]
-                oRequest["estado"]   := oEndereco["uf"]
-            EndIf
-        EndIf
-
-        aCliente := Self:MontarArrayCRMA980(oRequest, 3)
-        ConOut("[SERVICE][INCLUIR] Array CRMA980 com " + cValToChar(Len(aCliente)) + " campos")
-
-        MSExecAuto({|x,y| CRMA980(x,y)}, aCliente, 3)
-
-        If lMsErroAuto
-            oResponse["erro"] := .T.
-            oResponse["mensagem"] := "Erro no MsExecAuto CRMA980"
-        Else
-            ConOut("[SERVICE][INCLUIR] Cliente incluído com sucesso: " + oRequest["codigo"] + "-" + oRequest["loja"])
-            oResponse["erro"] := .F.
-            oResponse["mensagem"] := "Cliente incluído com sucesso"
-            oResponse["codigo"] := oRequest["codigo"]
-            oResponse["loja"] := oRequest["loja"]
-            oResponse["nome"] := oRequest["nome"]
-        EndIf
-
-    RECOVER USING oError
-        ConOut("[SERVICE][INCLUIR][EXCEPTION] " + oError:Description)
-        oResponse["erro"] := .T.
-        oResponse["mensagem"] := "Erro interno: " + oError:Description
-    END SEQUENCE
-
-Return oResponse
+Return cErro
 
 /*------------------------------------------------------------------------//
-// Alterar cliente 
+// Obter e validar token web
 //------------------------------------------------------------------------*/
-METHOD AlterarCliente(oRequest) CLASS ClienteMsExecService
-    Local oResponse := JsonObject():New()
-    Local aCliente  := {}
-    Local cErro     := ""
-    Local oEndereco := Nil
-    Local oError    := Nil
-
-    ConOut("[SERVICE][ALTERAR] Iniciando alteração via CRMA980")
-
-    BEGIN SEQUENCE
-
-        // Validação dos dados
-        cErro := Self:ValidarDados(oRequest, 4)
-        If !Empty(cErro)
-            oResponse["erro"] := .T.
-            oResponse["mensagem"] := cErro
-            BREAK
-        EndIf
-
-        // Verificação da existência do cliente
-        SA1->(DbSetOrder(1)) // A1_FILIAL + A1_COD + A1_LOJA
-        If !SA1->(DbSeek(xFilial("SA1") + oRequest["codigo"] + oRequest["loja"]))
-            oResponse["erro"] := .T.
-            oResponse["codigo"] := "404"
-            oResponse["mensagem"] := "Cliente não encontrado: " + oRequest["codigo"] + "-" + oRequest["loja"]
-            BREAK
-        EndIf
-
-        // Enriquecer dados com endereço via CEP, se informado
-        If oRequest:HasProperty("cep") .And. !Empty(oRequest["cep"])
-            oEndereco := Self:BuscarEnderecoCEP(oRequest["cep"])
-            If !oEndereco["erro"]
-                oRequest["endereco"] := oEndereco["logradouro"]
-                oRequest["bairro"]   := oEndereco["bairro"]
-                oRequest["cidade"]   := oEndereco["localidade"]
-                oRequest["estado"]   := oEndereco["uf"]
-            EndIf
-        EndIf
-
-        // Monta dados para envio ao CRMA980
-        aCliente := Self:MontarArrayCRMA980(oRequest, 4)
-        ConOut("[SERVICE][ALTERAR] Array CRMA980 montado com " + cValToChar(Len(aCliente)) + " campos")
-
-        // Executa alteração via MsExecAuto
-        MSExecAuto({|x,y| CRMA980(x,y)}, aCliente, 4)
-
-        If lMsErroAuto
-            oResponse["erro"] := .T.
-            oResponse["mensagem"] := "Erro no MsExecAuto CRMA980"
-        Else
-            oResponse["erro"] := .F.
-            oResponse["mensagem"] := "Cliente alterado com sucesso via CRMA980"
-            oResponse["codigo"] := oRequest["codigo"]
-            oResponse["loja"] := oRequest["loja"]
-            oResponse["nome"] := oRequest["nome"]
-        EndIf
-
-    RECOVER USING oError
-        ConOut("[SERVICE][ALTERAR][ERRO] " + oError:Description)
-        oResponse["erro"] := .T.
-        oResponse["mensagem"] := "Erro interno: " + oError:Description
-    END SEQUENCE
-
-Return oResponse
-
-
-/*------------------------------------------------------------------------//
-// Excluir cliente
-//------------------------------------------------------------------------*/
-METHOD ExcluirCliente(cCodigo, cLoja) CLASS ClienteMsExecService
-    Local oResponse := Nil
-    Local aCliente  := {}
-    Local cErro     := ""
-    Local oError    := Nil
-
-    oResponse := JsonObject():New()
-    ConOut("[SERVICE][EXCLUIR] Iniciando exclusão via CRMA980")
+METHOD GetWebTokenService(cToken) CLASS ClienteMsExecService
+    Local oToken := JsonObject():New()
+    Local oError := Nil
+    Local oModulos := JsonObject():New()
+    Local oCliente := JsonObject():New()
     
     BEGIN SEQUENCE
-
-        // Validação básica
-        If Empty(cCodigo) .Or. Empty(cLoja)
-            oResponse["erro"] := .T.
-            oResponse["mensagem"] := "Código e Loja obrigatórios"
-            BREAK
+        
+        // Aqui você pode implementar sua lógica de validação de token
+        // Por exemplo: consultar uma tabela de tokens, validar JWT, etc.
+        
+        If Empty(cToken)
+            ConOut("[TOKEN] Token vazio")
+            Return Nil
         EndIf
-
-        // Verificar se cliente existe
-        SA1->(DbSetOrder(1)) // A1_FILIAL + A1_COD + A1_LOJA
-        If !SA1->(DbSeek(xFilial("SA1") + cCodigo + cLoja))
-            oResponse["erro"] := .T.
-            oResponse["codigo"] := "404"
-            oResponse["mensagem"] := "Cliente não encontrado: " + cCodigo + "-" + cLoja
-            BREAK
-        EndIf
-
-        // Montar array básico para CRMA980
-        aCliente := {{"A1_COD", cCodigo, Nil}}
-
-        ConOut("[SERVICE][EXCLUIR] Array CRMA980 montado para exclusão")
-
-        // Chamar MsExecAuto
-        MSExecAuto({|x, y| CRMA980(x, y)}, aCliente, 5)
-
-        If lMsErroAuto
-            cErro := "Erro no MsExecAuto CRMA980"
-            ConOut("[SERVICE][EXCLUIR][ERRO] " + cErro)
-            oResponse["erro"] := .T.
-            oResponse["mensagem"] := cErro
+        
+        // Implementação simplificada - adapte conforme sua necessidade
+        If AllTrim(Upper(cToken)) == "ADMIN_TOKEN"
+            oToken["USUARIO"] := "ADMIN"
+            oToken["FILIAL"] := "01"
+            oToken["VALIDO"] := .T.
+            
+            oCliente["incluir"] := .T.
+            oCliente["alterar"] := .T.
+            oCliente["excluir"] := .T.
+            oCliente["consultar"] := .T.
+            
+            oModulos["CLIENTE"] := oCliente
+            oToken["modulos"] := oModulos
+            
+            ConOut("[TOKEN] Token válido para usuário ADMIN")
         Else
-            ConOut("[SERVICE][EXCLUIR] Sucesso: " + cCodigo + "-" + cLoja)
-            oResponse["erro"] := .F.
-            oResponse["mensagem"] := "Cliente excluído com sucesso via CRMA980"
-            oResponse["codigo"] := cCodigo
-            oResponse["loja"] := cLoja
+            // Aqui você pode implementar outras validações
+            // Como consultar tabela de usuários, validar JWT, etc.
+            ConOut("[TOKEN] Token inválido: " + cToken)
+            Return Nil
         EndIf
-
+        
     RECOVER USING oError
-        ConOut("[SERVICE][EXCLUIR][EXCEPTION] " + oError:Description)
-        oResponse["erro"] := .T.
-        oResponse["mensagem"] := "Erro interno: " + oError:Description
+        ConOut("[TOKEN][ERRO] " + oError:Description)
+        Return Nil
     END SEQUENCE
 
-Return oResponse
+Return oToken
+
+/********************************************************************************************************/
+/** Verifica campos obrigatórios no JSON
+/********************************************************************************************************/
+METHOD fValidaCamposObrig(jsonBody, aCampos) CLASS ClienteMsExecService
+	Local xRet := JsonObject():New()
+	Local nI := 0
+	Local cCampo := ""
+
+	xRet["erro"] := .F.
+	xRet["mensagem"] := ""
+
+	For nI := 1 To Len(aCampos)
+		cCampo := aCampos[nI]
+		If Empty(jsonBody[cCampo])
+			xRet["erro"] := .T.
+			xRet["mensagem"] := "Campo obrigatório ausente: " + cCampo
+			xRet["campo"] := cCampo
+			Exit
+		EndIf
+	Next
+
+Return xRet
+
+/********************************************************************************************************/
+/** Valida campos do JSON de acordo com a estrutura da tabela SA1
+/********************************************************************************************************/
+METHOD ValidaCamposJson(jsonBody, aMapCampos) CLASS ClienteMsExecService
+	Local aCampos     := {}
+	Local cCampoJson  := ""
+	Local xValorJson  := Nil
+	Local cTipo       := ""
+	Local nTamanho    := 0
+	Local nDecimais   := 0
+	Local xRet        := JsonObject():New()
+	Local nIdx        := 0
+	Local cNomeTabela := ""
+
+	xRet["erro"]     := .F.
+	xRet["mensagem"] := ""
+
+	DbSelectArea("SA1")
+	SA1->(DbSetOrder(1))
+	aCampos := SA1->(DbStruct())
+
+	For nI := 1 To Len(aMapCampos)
+		aItem := aMapCampos[nI]
+		cNomeTabela := aItem[1]
+		cCampoJson  := aItem[2]
+		xValorJson  := jsonBody[cCampoJson]
+		nIdx := AScan(aCampos, {|x| x[1] == cNomeTabela})
+
+		If nIdx <= 0
+			ConOut("[WSCLIENTE][VALIDA] Campo não encontrado na tabela: " + cNomeTabela)
+			Loop
+		EndIf
+
+		cTipo     := aCampos[nIdx][2]
+		nTamanho  := aCampos[nIdx][3]
+		nDecimais := aCampos[nIdx][4]
+
+		// Validação de tipo
+		Do Case
+			Case cTipo == "C" .And. ValType(xValorJson) != "C"
+				xRet["erro"] := .T.
+				xRet["mensagem"] := "Campo " + cCampoJson + " deveria ser caractere."
+				Exit
+
+			Case cTipo == "N" .And. ValType(xValorJson) != "N" .And. !IsNumeric(xValorJson)
+				xRet["erro"] := .T.
+				xRet["mensagem"] := "Campo " + cCampoJson + " deveria ser numérico."
+				Exit
+
+			Case cTipo == "D" .And. !Empty(xValorJson) .And. !IsDate(xValorJson)
+				xRet["erro"] := .T.
+				xRet["mensagem"] := "Campo " + cCampoJson + " deveria ser data."
+				Exit
+		EndCase
+
+		If cTipo == "C" .And. Len(AllTrim(xValorJson)) > nTamanho
+			xRet["erro"] := .T.
+			xRet["mensagem"] := "Campo " + cCampoJson + " excede o tamanho máximo de " + AllTrim(Str(nTamanho)) + " caracteres."
+			Exit
+		EndIf
+	Next
+
+Return xRet
