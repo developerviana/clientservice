@@ -17,7 +17,7 @@ import { PoNotificationService } from '@po-ui/ng-components';
           <p>Gerenciamento de Endereços de Clientes</p>
         </div>
         
-        <form [formGroup]="loginForm" (ngSubmit)="onLogin()" class="login-form">
+        <form [formGroup]="loginForm" (ngSubmit)="onLogin()" (keydown.enter)="onLogin()" class="login-form">
           <po-input 
             p-label="Usuário" 
             formControlName="username"
@@ -169,6 +169,11 @@ export class LoginComponent implements OnInit {
   }
 
   onLogin(): void {
+    // Evita dupla execução se já estiver carregando
+    if (this.loading) {
+      return;
+    }
+    
     console.log('Tentativa de login iniciada');
     console.log('Form válido:', this.loginForm.valid);
     console.log('Valores do form:', this.loginForm.value);

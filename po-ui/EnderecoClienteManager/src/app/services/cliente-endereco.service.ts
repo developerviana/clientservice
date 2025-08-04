@@ -52,11 +52,22 @@ export class ClienteEnderecoService {
    * Lista todos os clientes
    */
   listarClientes(): Observable<ApiResponse> {
+    console.log('🔗 Serviço: Iniciando listagem de clientes...');
+    console.log('🌐 URL:', `${this.baseUrl}/WSCLIENTE/clientes`);
+    
     return this.getAuthenticatedHeaders().pipe(
-      switchMap(headers => 
-        this.http.get<ApiResponse>(`${this.baseUrl}/WSCLIENTE/clientes`, { headers })
-      ),
-      catchError(this.handleError)
+      switchMap(headers => {
+        console.log('🔑 Headers autenticados obtidos');
+        return this.http.get<ApiResponse>(`${this.baseUrl}/WSCLIENTE/clientes`, { headers });
+      }),
+      map(response => {
+        console.log('📨 Resposta completa do serviço:', response);
+        return response;
+      }),
+      catchError(error => {
+        console.error('❌ Erro no serviço:', error);
+        return this.handleError(error);
+      })
     );
   }
 

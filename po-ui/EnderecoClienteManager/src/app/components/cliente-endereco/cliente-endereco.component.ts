@@ -53,11 +53,11 @@ export class ClienteEnderecoComponent implements OnInit {
   tableColumns: PoTableColumn[] = [
     { property: 'codigo', label: 'Código', width: '10%' },
     { property: 'loja', label: 'Loja', width: '8%' },
-    { property: 'nome', label: 'Nome', width: '25%' },
-    { property: 'endereco', label: 'Endereço', width: '20%' },
-    { property: 'bairro', label: 'Bairro', width: '15%' },
+    { property: 'endereco', label: 'Endereço', width: '25%' },
+    { property: 'bairro', label: 'Bairro', width: '20%' },
     { property: 'cidade', label: 'Cidade', width: '15%' },
-    { property: 'cep', label: 'CEP', width: '7%' }
+    { property: 'estado', label: 'Estado', width: '10%' },
+    { property: 'cep', label: 'CEP', width: '12%' }
   ];
 
   tableActions: PoTableAction[] = [
@@ -132,14 +132,34 @@ export class ClienteEnderecoComponent implements OnInit {
   }
 
   carregarClientes(): void {
+    console.log('🔄 Iniciando carregamento de clientes...');
     this.carregando = true;
     this.clienteService.listarClientes().subscribe({
       next: (response: any) => {
-        this.clientes = response;
+        console.log('📡 Resposta bruta da API:', response);
+        console.log('📊 Tipo da resposta:', typeof response);
+        console.log('📋 É array?', Array.isArray(response));
+        
+        // Verificar se a resposta tem a estrutura esperada
+        if (response && response.dados && Array.isArray(response.dados)) {
+          this.clientes = response.dados;
+          console.log('✅ Dados extraídos:', this.clientes);
+        } else if (Array.isArray(response)) {
+          this.clientes = response;
+          console.log('✅ Dados são array direto:', this.clientes);
+        } else {
+          console.log('❌ Estrutura de dados não reconhecida');
+          this.clientes = [];
+        }
+        
+        console.log('📝 Clientes finais:', this.clientes);
+        console.log('📊 Quantidade de clientes:', this.clientes.length);
+        console.log('🏷️ Colunas da tabela:', this.tableColumns);
+        
         this.carregando = false;
       },
       error: (error: any) => {
-        console.error('Erro ao carregar clientes:', error);
+        console.error('❌ Erro ao carregar clientes:', error);
         this.carregando = false;
         this.notification.error('Erro ao carregar lista de clientes');
       }

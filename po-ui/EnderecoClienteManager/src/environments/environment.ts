@@ -1,7 +1,7 @@
 export const environment = {
   production: false,
   api: {
-    baseUrl: 'http://localhost:8181/rest',
+    baseUrl: '/api',
     timeout: 30000
   },
   totvs: {

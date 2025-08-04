@@ -1,21 +1,22 @@
 export interface Cliente {
   codigo: string;
   loja: string;
-  nome: string;
-  tipo: string;
-  cnpjCpf: string;
-  inscricaoEstadual?: string;
   endereco: string;
-  numero?: string;
-  complemento?: string;
   bairro: string;
-  cidade: string;
   estado: string;
   cep: string;
+  // Campos opcionais que podem vir de outras APIs
+  nome?: string;
+  tipo?: string;
+  cnpjCpf?: string;
+  inscricaoEstadual?: string;
+  numero?: string;
+  complemento?: string;
+  cidade?: string;
   telefone?: string;
   email?: string;
   observacoes?: string;
-  ativo: boolean;
+  ativo?: boolean;
   dataCadastro?: Date;
   dataUltimaAlteracao?: Date;
 }
