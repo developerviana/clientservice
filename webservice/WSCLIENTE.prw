@@ -13,6 +13,7 @@
 //------------------------------------------------------------------------*/
 
 WsRestful WSCLIENTE Description "API REST para clientes" Format APPLICATION_JSON	
+
 	
 	WsData TOKEN As Character
 	WsData FILIAL As Character
@@ -30,11 +31,6 @@ WsRestful WSCLIENTE Description "API REST para clientes" Format APPLICATION_JSON
 		PATH "/clientes" ;
 		WSSYNTAX "clientes";
 
-	WSMETHOD GET BUSCARCLIENTE ; 
-		DESCRIPTION "Buscar cliente específico" ;
-		PATH "/clientes/{codigo}/{loja}" ;
-		WSSYNTAX "clientes/{codigo}/{loja}";	
-
 	WSMETHOD PUT ALTERARCLIENTE ; 
 		DESCRIPTION "Alterar cliente" ;
 		PATH "/clientes/{codigo}/{loja}" ;
@@ -50,65 +46,60 @@ WsRestful WSCLIENTE Description "API REST para clientes" Format APPLICATION_JSON
 		PATH "/clientes/{codigo}/{loja}/cep/{cep}" ;
 		WSSYNTAX "clientes/{codigo}/{loja}/cep/{cep}";
 
-	WSMETHOD POST IMPORTARCLIENTESCSV ; 
-		DESCRIPTION "Importar clientes via arquivo CSV" ;
-		PATH "/clientes/importar" ;
-		WSSYNTAX "clientes/importar";
-
 End WsRestful
 
 /*******************************************************************************/
 /** POST: Incluir cliente 
 /*******************************************************************************/
 WSMETHOD POST INCLUIRCLIENTE WSSERVICE WSCLIENTE
-	Local lRet := .T.
-	Local cBody
-	Local jsonBody := JsonObject():New()
-	Local jsonToken := IIf(Self:TOKEN <> Nil, GetWebToken(Self:TOKEN), Nil) 
-	Local cFilParam := IIf(Self:FILIAL <> Nil, Self:FILIAL, "01")
-	Local xResponse := JsonObject():New()
-	Local oClienteService := Nil
+	Local lRet           := .T.
+	Local cBody          := ::GetContent()
+	Local jsonBody       := JsonObject():New()
+	Local xResponse      := JsonObject():New()
+	Local jsonToken      := IIf(Self:TOKEN <> Nil, GetWebToken(Self:TOKEN), Nil)
+	Local cFilParam      := IIf(Self:FILIAL <> Nil, Self:FILIAL, "01")
 
-	// Recupera o body da requisição
-	cBody := ::GetContent()
-	jsonBody:fromJson(cBody)
+	ConOut("[WSCLIENTE][POST] Iniciando inclusão de cliente")
+	ConOut("[WSCLIENTE][POST] Body recebido: " + cBody)
 
-	if jsonToken <> NIL
-		If fPermissoes(jsonToken, "CLIENTE")
-			if cFilParam <> Nil
-				oClienteService := ClienteMsExecService():New()
-				xResponse := oClienteService:IncluirCliente(jsonBody)
-				if (!xResponse["erro"])
-					::SetResponse(xResponse:ToJson())
-					lRet := .T.
-				else
-					SetRestFault(400, xResponse["mensagem"])
-					lRet := .F.
-				endif
-			else
-				SetRestFault(400, "Deve ser informado a Filial!")
-				lRet := .F.	
-			endif		
-		else
-			SetRestFault(403, "O usuário não tem permissão de incluir cliente.")	
-			lRet := .F.		
-		endif
-	else
-		// Permite operação sem token para testes
-		oClienteService := ClienteMsExecService():New()
-		xResponse := oClienteService:IncluirCliente(jsonBody)
-		if (!xResponse["erro"])
-			::SetResponse(xResponse:ToJson())
-			lRet := .T.
-		else
-			SetRestFault(400, xResponse["mensagem"])
-			lRet := .F.
-		endif
-	endif
+	Begin Sequence
+		jsonBody:FromJson(cBody)
+		ConOut("[WSCLIENTE][POST] JSON parseado com sucesso")
+	Recover
+		ConOut("[WSCLIENTE][POST] Erro ao fazer parse do JSON")
+		SetRestFault(400, "JSON inválido")
+		Return .F.
+	End Sequence
+
+	If jsonToken <> Nil
+		If !fPermissoes(jsonToken, "CLIENTE", "incluir")
+			SetRestFault(403, "O usuário não tem permissão de incluir cliente.")
+			Return .F.
+		EndIf
+
+		If Empty(cFilParam)
+			SetRestFault(400, "Deve ser informada a filial.")
+			Return .F.
+		EndIf
+	EndIf
+
+	ConOut("[WSCLIENTE][POST] Chamando ExecutaMsCliente")
+	xResponse := ExecutaMsCliente(jsonBody, 3) 
+	ConOut("[WSCLIENTE][POST] ExecutaMsCliente finalizado")
+
+	If xResponse["erro"]
+		ConOut("[WSCLIENTE][POST] Erro: " + xResponse["mensagem"])
+		SetRestFault(400, xResponse["mensagem"])
+		lRet := .F.
+	Else
+		ConOut("[WSCLIENTE][POST] Sucesso: " + xResponse["mensagem"])
+		::SetResponse(xResponse:ToJson())
+		lRet := .T.
+	EndIf
 
 	::SetContentType("application/json; charset=utf-8")
-
 Return lRet
+
 
 /*******************************************************************************/
 /** GET: Listar clientes
@@ -121,7 +112,7 @@ WSMETHOD GET LISTARCLIENTES WSSERVICE WSCLIENTE
 	Local cQuery      := ""
 	Local lAchou      := .F.
 
-	cQuery := "SELECT A1_COD, A1_LOJA, A1_END, A1_BAIRRO, A1_EST, A1_CEP "
+	cQuery := "SELECT A1_COD, A1_NOME, A1_LOJA, A1_MUN, A1_END, A1_BAIRRO, A1_EST, A1_CEP "
 	cQuery += "FROM " + RetSqlName("SA1") + " "
 	cQuery += "WHERE D_E_L_E_T_ = ' ' "
 	cQuery += "AND A1_FILIAL = '" + xFilial("SA1") + "' "
@@ -138,10 +129,12 @@ WSMETHOD GET LISTARCLIENTES WSSERVICE WSCLIENTE
 
 				jsonCliente["codigo"]   := AllTrim(QUERY_CLIENTES->A1_COD)
 				jsonCliente["loja"]     := AllTrim(QUERY_CLIENTES->A1_LOJA)
+				jsonCliente["nome"]     := AllTrim(QUERY_CLIENTES->A1_NOME)
 				jsonCliente["endereco"] := AllTrim(QUERY_CLIENTES->A1_END)
 				jsonCliente["bairro"]   := AllTrim(QUERY_CLIENTES->A1_BAIRRO)
 				jsonCliente["estado"]   := AllTrim(QUERY_CLIENTES->A1_EST)
 				jsonCliente["cep"]      := AllTrim(QUERY_CLIENTES->A1_CEP)
+				jsonCliente["municipio"]:= AllTrim(QUERY_CLIENTES->A1_MUN)
 
 				AAdd(aClientes, jsonCliente)
 				QUERY_CLIENTES->(DbSkip())
@@ -174,88 +167,7 @@ WSMETHOD GET LISTARCLIENTES WSSERVICE WSCLIENTE
 Return lRet
 
 /*******************************************************************************/
-/** GET: Buscar cliente específico
-/*******************************************************************************/
-WSMETHOD GET BUSCARCLIENTE WSSERVICE WSCLIENTE
-	Local lRet := .T.
-	Local xResponse := JsonObject():New()
-	Local jsonToken
-	Local jsonBody := JsonObject():New()
-	Local cToken := Self:TOKEN
-	Local cCodigo := ::aURLParms[1]
-	Local cLoja := ::aURLParms[2]
-    Local cQuery := ""
-    Local cAlias := GetNextAlias()
-    Local jsonCliente := JsonObject():New()
-	
-    If cToken <> Nil
-		jsonToken := GetWebToken(cToken)
-	else
-		jsonToken := Nil 
-	endif
-
-	jsonBody["codigo"] := cCodigo
-	jsonBody["loja"] := cLoja
-	jsonBody["FILIAL"] := Self:FILIAL
-
-	// Query para buscar cliente específico na SA1
-	cQuery := "SELECT A1_COD, A1_LOJA, A1_NOME, A1_NREDUZ, A1_PESSOA, A1_CGC, "
-	cQuery += "A1_END, A1_NR_END, A1_COMPLEM, A1_BAIRRO, A1_MUN, A1_EST, A1_CEP, "
-	cQuery += "A1_DDD, A1_TEL, A1_EMAIL, A1_MSBLQL "
-	cQuery += "FROM " + RetSqlName("SA1") + " SA1 "
-	cQuery += "WHERE SA1.D_E_L_E_T_ = ' ' "
-	cQuery += "AND A1_FILIAL = '" + xFilial("SA1") + "' "
-	cQuery += "AND A1_COD = '" + cCodigo + "' "
-	cQuery += "AND A1_LOJA = '" + cLoja + "' "
-
-	cQuery := ChangeQuery(cQuery)
-	
-	DbUseArea(.T., "TOPCONN", TCGenQry(,, cQuery), cAlias, .F., .T.)
-	
-	If (cAlias)->(!EOF())
-		jsonCliente["codigo"] := AllTrim((cAlias)->A1_COD)
-		jsonCliente["loja"] := AllTrim((cAlias)->A1_LOJA)
-		jsonCliente["nome"] := AllTrim((cAlias)->A1_NOME)
-		jsonCliente["nomeReduzido"] := AllTrim((cAlias)->A1_NREDUZ)
-		jsonCliente["tipo"] := AllTrim((cAlias)->A1_PESSOA)
-		jsonCliente["cnpjCpf"] := AllTrim((cAlias)->A1_CGC)
-		jsonCliente["endereco"] := AllTrim((cAlias)->A1_END)
-		jsonCliente["numero"] := AllTrim((cAlias)->A1_NR_END)
-		jsonCliente["complemento"] := AllTrim((cAlias)->A1_COMPLEM)
-		jsonCliente["bairro"] := AllTrim((cAlias)->A1_BAIRRO)
-		jsonCliente["cidade"] := AllTrim((cAlias)->A1_MUN)
-		jsonCliente["estado"] := AllTrim((cAlias)->A1_EST)
-		jsonCliente["cep"] := AllTrim((cAlias)->A1_CEP)
-		jsonCliente["telefone"] := AllTrim((cAlias)->A1_DDD) + AllTrim((cAlias)->A1_TEL)
-		jsonCliente["email"] := AllTrim((cAlias)->A1_EMAIL)
-		jsonCliente["ativo"] := IIF((cAlias)->A1_MSBLQL == "1", .F., .T.)
-		
-		xResponse["sucesso"] := .T.
-		xResponse["erro"] := .F.
-		xResponse["dados"] := jsonCliente
-		xResponse["mensagem"] := "Cliente encontrado"
-	Else
-		xResponse["sucesso"] := .F.
-		xResponse["erro"] := .T.
-		xResponse["codigo"] := "404"
-		xResponse["mensagem"] := "Cliente não encontrado"
-	EndIf
-	
-	(cAlias)->(DbCloseArea())
-
-	If !xResponse["erro"]
-		::SetResponse(xResponse:ToJson())
-	Else
-		SetRestFault(IIF(xResponse["codigo"] == "404", 404, 400), xResponse["mensagem"])	
-		lRet := .F.
-	EndIf
-
-	::SetContentType("application/json; charset=utf-8")
-
-Return lRet
-
-/*******************************************************************************/
-/** PUT: Alterar cliente via CRMA980
+/** PUT: Alterar cliente 
 /*******************************************************************************/
 WSMETHOD PUT ALTERARCLIENTE WSSERVICE WSCLIENTE
 	Local lRet := .T.
@@ -266,218 +178,183 @@ WSMETHOD PUT ALTERARCLIENTE WSSERVICE WSCLIENTE
 	Local cCodigo := ::aURLParms[1]
 	Local cLoja := ::aURLParms[2]
 	Local xResponse := JsonObject():New()
-	Local oClienteService := Nil
 
-	// Recupera o body da requisição
 	cBody := ::GetContent()
 	jsonBody:fromJson(cBody)
-	
-	// Adiciona código e loja da URL
+
 	jsonBody["codigo"] := cCodigo
 	jsonBody["loja"] := cLoja
 
-	if jsonToken <> NIL
-		If fPermissoes(jsonToken, "CLIENTE")
-			if cFilParam <> Nil
-				oClienteService := ClienteMsExecService():New()
-				xResponse := oClienteService:AlterarCliente(jsonBody)
-				if (!xResponse["erro"])
-					::SetResponse(xResponse:ToJson())
-					lRet := .T.
-				else
-					SetRestFault(IIF(xResponse["codigo"] == "404", 404, 400), xResponse["mensagem"])
-					lRet := .F.
-				endif
-			else
-				SetRestFault(400, "Deve ser informado a Filial!")
-				lRet := .F.	
-			endif		
-		else
+	If jsonToken <> NIL
+		If !fPermissoes(jsonToken, "CLIENTE", "alterar")
 			SetRestFault(403, "O usuário não tem permissão de alterar cliente.")	
-			lRet := .F.		
-		endif
-	else
-		// Permite operação sem token para testes
-		oClienteService := ClienteMsExecService():New()
-		xResponse := oClienteService:AlterarCliente(jsonBody)
-		if (!xResponse["erro"])
-			::SetResponse(xResponse:ToJson())
-			lRet := .T.
-		else
-			SetRestFault(IIF(xResponse["codigo"] == "404", 404, 400), xResponse["mensagem"])
-			lRet := .F.
-		endif
-	endif
+			Return .F.
+		EndIf
+
+		If Empty(cFilParam)
+			SetRestFault(400, "Deve ser informada a Filial!")
+			Return .F.
+		EndIf
+	EndIf
+
+	xResponse := ExecutaMsCliente(jsonBody, 4) 
+
+	If xResponse["erro"]
+		SetRestFault(IIF(xResponse["codigo"] == "404", 404, 400), xResponse["mensagem"])
+		lRet := .F.
+	Else
+		::SetResponse(xResponse:ToJson())
+		lRet := .T.
+	EndIf
 
 	::SetContentType("application/json; charset=utf-8")
-
 Return lRet
 
 /*******************************************************************************/
-/** DELETE: Excluir cliente via CRMA980
+/** DELETE: Excluir cliente
 /*******************************************************************************/
 WSMETHOD DELETE EXCLUIRCLIENTE WSSERVICE WSCLIENTE
-	Local lRet := .T.
-	Local jsonToken := IIf(Self:TOKEN <> Nil, GetWebToken(Self:TOKEN), Nil) 
-	Local cFilParam := IIf(Self:FILIAL <> Nil, Self:FILIAL, "01")
-	Local cCodigo := ::aURLParms[1]
-	Local cLoja := ::aURLParms[2]
-	Local xResponse := JsonObject():New()
-    Local oClienteService := Nil
+	Local lRet        := .T.
+	Local cBody       := ::GetContent()
+	Local jsonBody    := JsonObject():New()
+	Local xResponse   := JsonObject():New()
+	Local jsonToken   := IIf(Self:TOKEN <> Nil, GetWebToken(Self:TOKEN), Nil)
+	Local nOpcAuto    := 5 
 
-	if jsonToken <> NIL
+	jsonBody:FromJson(cBody)
+
+	If jsonToken <> Nil
 		If fPermissoes(jsonToken, "CLIENTE")
-			if cFilParam <> Nil
-				oClienteService := ClienteMsExecService():New()
-				xResponse := oClienteService:ExcluirCliente(cCodigo, cLoja)
-				if (!xResponse["erro"])
-					::SetResponse(xResponse:ToJson())
-					lRet := .T.
-				else
-					SetRestFault(IIF(xResponse["codigo"] == "404", 404, 400), xResponse["mensagem"])
-					lRet := .F.
-				endif
-			else
-				SetRestFault(400, "Deve ser informado a Filial!")
-				lRet := .F.	
-			endif		
-		else
-			SetRestFault(403, "O usuário não tem permissão de excluir cliente.")	
-			lRet := .F.		
-		endif
-	else
-		// Permite operação sem token para testes
-		oClienteService := ClienteMsExecService():New()
-		xResponse := oClienteService:ExcluirCliente(cCodigo, cLoja)
-		if (!xResponse["erro"])
-			::SetResponse(xResponse:ToJson())
-			lRet := .T.
-		else
-			SetRestFault(IIF(xResponse["codigo"] == "404", 404, 400), xResponse["mensagem"])
+			xResponse := ExecutaMsCliente(jsonBody, nOpcAuto)
+			If !xResponse["erro"]
+				::SetResponse(xResponse:ToJson())
+			Else
+				SetRestFault(400, xResponse["mensagem"])
+				lRet := .F.
+			EndIf
+		Else
+			SetRestFault(403, "Usuário sem permissão para excluir cliente.")
 			lRet := .F.
-		endif
-	endif
+		EndIf
+	Else
+		xResponse := ExecutaMsCliente(jsonBody, nOpcAuto)
+		If !xResponse["erro"]
+			::SetResponse(xResponse:ToJson())
+		Else
+			SetRestFault(400, xResponse["mensagem"])
+			lRet := .F.
+		EndIf
+	EndIf
 
 	::SetContentType("application/json; charset=utf-8")
-
 Return lRet
+
 
 /*******************************************************************************/
 /** PUT: Atualizar endereço por CEP
 /*******************************************************************************/
-WSMETHOD PUT ATUALIZARCEP WSSERVICE WSCLIENTE
-	Local lRet := .T.
-	Local jsonToken := IIf(Self:TOKEN <> Nil, GetWebToken(Self:TOKEN), Nil) 
-	Local cFilParam := IIf(Self:FILIAL <> Nil, Self:FILIAL, "01")
-	Local cCodigo := ::aURLParms[1]
-	Local cLoja := ::aURLParms[2]
-	Local cCEP := ::aURLParms[3]
-	Local xResponse := JsonObject():New()
-    Local oClienteService
+WSMETHOD PUT AtualizarEnderecoCEP WSSERVICE WSCLIENTE
+	Local aAreaAnt := FWGetArea()
+	Local xRet := JsonObject():New()
+	Local aSA1 := {}
+	Local nOpcAuto := 4 
+	Local lOk := .T.
+	Local cFilial := ""
+	Local cChave := ""
+	Local oJson := JsonObject():New()
+	Local oRest := FWRest():New("https://viacep.com.br/ws")
+	Local cResp := ""
 
-	if jsonToken <> NIL
-		If fPermissoes(jsonToken, "CLIENTE")
-			if cFilParam <> Nil
-				oClienteService := ClienteMsExecService():New()
-				xResponse := oClienteService:AtualizarEnderecoCEP(cCodigo, cLoja, cCEP)
-				if (!xResponse["erro"])
-					::SetResponse(xResponse:ToJson())
-					lRet := .T.
-				else
-					SetRestFault(IIF(xResponse["codigo"] == "404", 404, 400), xResponse["mensagem"])
-					lRet := .F.
-				endif
-			else
-				SetRestFault(400, "Deve ser informado a Filial!")
-				lRet := .F.	
-			endif		
-		else
-			SetRestFault(403, "O usuário não tem permissão de alterar endereço.")	
-			lRet := .F.		
-		endif
-	else
-		// Permite operação sem token para testes
-		oClienteService := ClienteMsExecService():New()
-		xResponse := oClienteService:AtualizarEnderecoCEP(cCodigo, cLoja, cCEP)
-		if (!xResponse["erro"])
-			::SetResponse(xResponse:ToJson())
-			lRet := .T.
-		else
-			SetRestFault(IIF(xResponse["codigo"] == "404", 404, 400), xResponse["mensagem"])
-			lRet := .F.
-		endif
-	endif
+	Private lMsErroAuto := .F.
+	cFilial := xFilial("SA1")
+	ConOut("[CLIENTE][ALTERAR_CEP] Iniciando atualização de endereço para " + cCodigo + "-" + cLoja + " com CEP " + cCEP)
 
-	::SetContentType("application/json; charset=utf-8")
+	xRet["erro"] := .F.
+	xRet["mensagem"] := "Endereço atualizado com sucesso"
+	xRet["codigo"] := cCodigo
+	xRet["loja"] := cLoja
 
-Return lRet
+	cChave := cFilial + PadR(AllTrim(cCodigo), TamSX3("A1_COD")[1]) + PadR(AllTrim(cLoja), TamSX3("A1_LOJA")[1])
 
-/*******************************************************************************/
-/** POST: Importar clientes via CSV
-/*******************************************************************************/
-WSMETHOD POST IMPORTARCLIENTESCSV WSSERVICE WSCLIENTE
-	Local lRet := .T.
-	Local cBody
-	Local jsonBody := JsonObject():New()
-	Local jsonToken := IIf(Self:TOKEN <> Nil, GetWebToken(Self:TOKEN), Nil) 
-	Local cFilParam := IIf(Self:FILIAL <> Nil, Self:FILIAL, "01")
-	Local xResponse := JsonObject():New()
-	Local oClienteService := Nil
+	If !SA1->(DbSeek(cChave))
+		xRet["erro"] := .T.
+		xRet["codigo"] := "404"
+		xRet["mensagem"] := "Cliente não encontrado."
+		ConOut("[CLIENTE][ERRO] " + xRet["mensagem"])
+		Return xRet
+	EndIf
 
-	// Recupera o body da requisição
-	cBody := ::GetContent()
-	jsonBody:fromJson(cBody)
+	oRest:SetPath("/" + cCEP + "/json/")
+	If oRest:Get()
+		cResp := oRest:GetResult()
+		If !Empty(cResp)
+			oJson:FromJson(cResp)
 
-	if jsonToken <> NIL
-		If fPermissoes(jsonToken, "CLIENTE")
-			if cFilParam <> Nil
-				xResponse := oClienteService:ImportarClientesCSV(jsonBody)
-				if (!xResponse["erro"])
-					::SetResponse(xResponse:ToJson())
-					lRet := .T.
-				else
-					SetRestFault(400, xResponse["mensagem"])
-					lRet := .F.
-				endif
-			else
-				SetRestFault(400, "Deve ser informado a Filial!")
-				lRet := .F.	
-			endif		
-		else
-			SetRestFault(403, "O usuário não tem permissão de importar clientes.")	
-			lRet := .F.		
-		endif
-	else
-		// Permite operação sem token para testes
-		oClienteService := ClienteMsExecService():New()
-		xResponse := oClienteService:ImportarClientesCSV(jsonBody)
-		if (!xResponse["erro"])
-			::SetResponse(xResponse:ToJson())
-			lRet := .T.
-		else
-			SetRestFault(400, xResponse["mensagem"])
-			lRet := .F.
-		endif
-	endif
+			If oJson:GetJsonObject("erro") == "true"
+				xRet["erro"] := .T.
+				xRet["mensagem"] := "CEP inválido ou não encontrado no ViaCEP."
+				ConOut("[CLIENTE][ERRO] " + xRet["mensagem"])
+				Return xRet
+			EndIf
+		Else
+			xRet["erro"] := .T.
+			xRet["mensagem"] := "Resposta vazia do serviço ViaCEP."
+			ConOut("[CLIENTE][ERRO] " + xRet["mensagem"])
+			Return xRet
+		EndIf
+	Else
+		xRet["erro"] := .T.
+		xRet["mensagem"] := "Erro ao consultar o serviço ViaCEP."
+		ConOut("[CLIENTE][ERRO] " + xRet["mensagem"])
+		Return xRet
+	EndIf
 
-	::SetContentType("application/json; charset=utf-8")
+	AAdd(aSA1, {"A1_COD"   , PadR(cCodigo, TamSX3("A1_COD")[1]), Nil})
+	AAdd(aSA1, {"A1_LOJA"  , PadR(cLoja, TamSX3("A1_LOJA")[1]), Nil})
+	AAdd(aSA1, {"A1_FILIAL", cFilial, Nil})
+	AAdd(aSA1, {"A1_END"   , oJson["logradouro"], Nil})
+	AAdd(aSA1, {"A1_BAIRRO", oJson["bairro"], Nil})
+	AAdd(aSA1, {"A1_MUN"   , oJson["localidade"], Nil})
+	AAdd(aSA1, {"A1_EST"   , oJson["uf"], Nil})
+	AAdd(aSA1, {"A1_CEP"   , cCEP, Nil})
 
-Return lRet
+	ConOut("[CLIENTE][ALTERAR_CEP] Executando MsExecAuto para atualizar endereço")
+	lOk := MsExecAuto({|a, b, c| CRMA980(a, b, c)}, aSA1, nOpcAuto)
+
+	If !lOk .Or. lMsErroAuto
+		xRet["erro"] := .T.
+		xRet["mensagem"] := "Erro ao atualizar endereço via MsExecAuto."
+		ConOut("[CLIENTE][ERRO] " + xRet["mensagem"])
+	Else
+		ConOut("[CLIENTE][SUCESSO] Endereço atualizado com sucesso para o cliente " + cCodigo + "-" + cLoja)
+	EndIf
+
+	ConOut("[CLIENTE][ALTERAR_CEP] Fim da execução")
+	RestArea(aAreaAnt)
+Return xRet
 
 /********************************************************************************************************/
 /** Verifica se o usuário pode realizar determinada ação sobre os Clientes
 /********************************************************************************************************/
-Static Function fPermissoes(jsonToken, cOrigem)
-	Local lxPode := .T.
-	
-	// Implementar validação de permissões conforme necessário
-	// Por enquanto permite todas as operações
-	
-	if (cOrigem == "CLIENTE")
-		lxPode := .T. // Permitir por enquanto
-	endif
+Static Function fPermissoes(jsonToken, cOrigem, cAcao)
+	Local lPode := .F.
 
-Return lxPode
+	If FWIsAdmin()
+		Return .T.
+	EndIf
+
+	If jsonToken == Nil .Or. Empty(cOrigem) .Or. Empty(cAcao)
+		Return .F.
+	EndIf
+
+	If jsonToken:Has("modulos") .And. jsonToken:GetJsonObject("modulos"):Has(cOrigem)
+		lPode := jsonToken:GetJsonObject("modulos"):GetJsonObject(cOrigem):GetLogical(cAcao)
+	Else
+		ConOut("[PERMISSAO] Permissão não definida para " + cOrigem + "/" + cAcao)
+	EndIf
+
+Return lPode
+
 
 /********************************************************************************************************/
 /** Função para obter token web (simplificada)
@@ -491,18 +368,273 @@ Static Function GetWebToken(cToken)
 	
 Return oToken
 
-/********************************************************************************************************/
-/** Função para converter query string em JSON (simplificada)
-/********************************************************************************************************/
-Static Function QueryStringToJson(aQueryString)
-	Local oJson := JsonObject():New()
-	Local nI
-	
-	If Len(aQueryString) > 0
-		For nI := 1 To Len(aQueryString)
-			// Implementar parse da query string
-		Next
-	EndIf
-	
-Return oJson
 
+/********************************************************************************************************/
+/** Função para deletar cliente
+/********************************************************************************************************/
+Static Function ExcluirCliente(jsonBody)
+	Local aAreaAnt := FWGetArea()
+	Local xRet := JsonObject():New()
+	Local aSA1 := {}
+	Local nOpcAuto := 5 
+	Local lOk := .T.
+	Local aCamposObrig := {"codigo", "loja", "nome", "nomeReduzido", "tipoPessoa", "cpfCnpj", "endereco", "cidade", "estado"}
+	Local xValida
+
+	Private lMsErroAuto := .F.
+	xValida := fValidaCamposObrig(jsonBody, aCamposObrig)
+	ConOut("[CLIENTE][EXCLUIR] Iniciando exclusão via JSON para " + jsonBody["codigo"] + "-" + jsonBody["loja"])
+
+	xRet["erro"] := .F.
+	xRet["mensagem"] := "Cliente excluído com sucesso"
+	xRet["codigo"] := jsonBody["codigo"]
+	xRet["loja"] := jsonBody["loja"]
+
+
+	If xValida["erro"]
+		xRet["erro"] := .T.
+		xRet["mensagem"] := xValida["mensagem"]
+		ConOut("[CLIENTE][ERRO] " + xValida["mensagem"])
+		Return xRet
+	EndIf
+
+	AAdd(aSA1, {"A1_COD"    , PadR(jsonBody["codigo"], TamSX3("A1_COD")[1]), Nil})
+	AAdd(aSA1, {"A1_LOJA"   , PadR(jsonBody["loja"], TamSX3("A1_LOJA")[1]), Nil})
+	AAdd(aSA1, {"A1_FILIAL" , xFilial("SA1"), Nil})
+	AAdd(aSA1, {"A1_NOME"   , jsonBody["nome"], Nil})
+	AAdd(aSA1, {"A1_NREDUZ" , jsonBody["nomeReduzido"], Nil})
+	AAdd(aSA1, {"A1_PESSOA" , jsonBody["tipoPessoa"], Nil})
+	AAdd(aSA1, {"A1_CGC"    , jsonBody["cpfCnpj"], Nil})
+	AAdd(aSA1, {"A1_INSCR"  , IIf(Haskey(jsonBody, "inscricaoEstadual"), jsonBody["inscricaoEstadual"], ""), Nil})
+	AAdd(aSA1, {"A1_END"    , jsonBody["endereco"], Nil})
+	AAdd(aSA1, {"A1_BAIRRO" , IIf(Haskey(jsonBody, "bairro"), jsonBody["bairro"], ""), Nil})
+	AAdd(aSA1, {"A1_MUN"    , jsonBody["cidade"], Nil})
+	AAdd(aSA1, {"A1_EST"    , jsonBody["estado"], Nil})
+	AAdd(aSA1, {"A1_CEP"    , IIf(Haskey(jsonBody, "cep"), jsonBody["cep"], ""), Nil})
+	AAdd(aSA1, {"A1_PAIS"   , IIf(Haskey(jsonBody, "pais"), jsonBody["pais"], "1058"), Nil})
+	AAdd(aSA1, {"D_E_L_E_T_", " ", Nil})
+
+	ConOut("[CLIENTE][EXCLUIR] Executando MsExecAuto com operação 5")
+	lOk := MsExecAuto({|a, b, c| CRMA980(a, b, c)}, aSA1, nOpcAuto)
+
+	If !lOk .Or. lMsErroAuto
+		xRet["erro"] := .T.
+		xRet["mensagem"] := "Erro ao excluir cliente via MsExecAuto."
+		ConOut("[CLIENTE][ERRO] " + xRet["mensagem"])
+	Else
+		ConOut("[CLIENTE][SUCESSO] Cliente " + jsonBody["codigo"] + "-" + jsonBody["loja"] + " excluído com sucesso")
+	EndIf
+
+	RestArea(aAreaAnt)
+Return xRet
+
+/********************************************************************************************************/
+/** Verifica campos obrigatórios no JSON
+/********************************************************************************************************/
+Static Function fValidaCamposObrig(jsonBody, aCampos)
+	Local xRet := JsonObject():New()
+	Local nI := 0
+	Local cCampo := ""
+
+	xRet["erro"] := .F.
+	xRet["mensagem"] := ""
+
+	For nI := 1 To Len(aCampos)
+		cCampo := aCampos[nI]
+		If Empty(jsonBody[cCampo])
+			xRet["erro"] := .T.
+			xRet["mensagem"] := "Campo obrigatório ausente: " + cCampo
+			xRet["campo"] := cCampo
+			Exit
+		EndIf
+	Next
+
+Return xRet
+
+/********************************************************************************************************/
+/** Função para executar operações de cliente (incluir, alterar, excluir)
+/********************************************************************************************************/
+Static Function ExecutaMsCliente(jsonBody, nOpcAuto)
+
+	Local lDeuCerto := .F.
+	Local oModel    := Nil
+	Local oSA1Mod   := Nil
+	Local aErro     := {}
+	Local xRet      := JsonObject():New()
+	Local xValida   
+
+	// Ajusta mensagem padrão conforme operação
+	Do Case
+		Case nOpcAuto == 3
+			xRet["mensagem"] := "Cliente incluído com sucesso"
+		Case nOpcAuto == 4
+			xRet["mensagem"] := "Cliente alterado com sucesso"
+		Case nOpcAuto == 5
+			xRet["mensagem"] := "Cliente excluído com sucesso"
+		Otherwise
+			xRet["mensagem"] := "Operação realizada com sucesso"
+	EndCase
+
+	xRet["erro"]   := .F.
+	xRet["codigo"] := jsonBody["codigo"]
+	xRet["loja"]   := jsonBody["loja"]
+
+	ConOut("[WSCLIENTE][EXECUTA] Iniciando operação " + AllTrim(Str(nOpcAuto)) + " via Model MVC")
+
+	// Carrega modelo padrão CRMA980
+	oModel := FWLoadModel("CRMA980")
+	oModel:SetOperation(nOpcAuto)
+	oModel:Activate()
+
+	oSA1Mod := oModel:GetModel("SA1MASTER")
+
+	xValida := ValidaCamposJson(jsonBody)
+	If xValida["erro"]
+		ConOut("[WSCLIENTE][VALIDA][ERRO] " + xValida["mensagem"])
+		xRet["erro"] := .T.
+		xRet["mensagem"] := xValida["mensagem"]
+		oModel:DeActivate()
+		Return xRet
+	EndIf
+
+	oSA1Mod:SetValue("A1_COD",       jsonBody["codigo"])
+	oSA1Mod:SetValue("A1_LOJA",      jsonBody["loja"])
+	oSA1Mod:SetValue("A1_NOME",      jsonBody["nome"])
+	oSA1Mod:SetValue("A1_NREDUZ",    jsonBody["nomeReduzido"])
+	oSA1Mod:SetValue("A1_END",       jsonBody["endereco"])
+	oSA1Mod:SetValue("A1_BAIRRO",    jsonBody["bairro"])
+	oSA1Mod:SetValue("A1_TIPO",      jsonBody["tipo"])
+	oSA1Mod:SetValue("A1_EST",       jsonBody["estado"])
+	oSA1Mod:SetValue("A1_COD_MUN",   jsonBody["cod_ibge"])
+	oSA1Mod:SetValue("A1_MUN",       jsonBody["cidade"])
+	oSA1Mod:SetValue("A1_CEP",       jsonBody["cep"])
+	oSA1Mod:SetValue("A1_INSCR",     jsonBody["inscricaoEstadual"])
+	oSA1Mod:SetValue("A1_CGC",       jsonBody["cpfCnpj"])
+	oSA1Mod:SetValue("A1_PAIS",      jsonBody["pais"])
+	oSA1Mod:SetValue("A1_EMAIL",     jsonBody["email"])
+	oSA1Mod:SetValue("A1_DDD",       jsonBody["ddd"])
+	oSA1Mod:SetValue("A1_TEL",       jsonBody["telefone"])
+	oSA1Mod:SetValue("A1_PESSOA",    jsonBody["tipoPessoa"])
+
+	If oModel:VldData()
+		ConOut("[WSCLIENTE][EXECUTA] Validação de dados OK")
+
+		If oModel:CommitData()
+			ConOut("[WSCLIENTE][EXECUTA] Commit realizado com sucesso")
+			lDeuCerto := .T.
+		Else
+			ConOut("[WSCLIENTE][EXECUTA][ERRO] Falha ao aplicar CommitData()")
+		EndIf
+
+	Else
+		ConOut("[WSCLIENTE][EXECUTA][ERRO] Falha na validação dos dados")
+	EndIf
+
+	If !lDeuCerto
+		aErro := oModel:GetErrorMessage()
+
+		ConOut("[WSCLIENTE][EXECUTA][ERRO] Operação falhou com os seguintes detalhes:")
+		ConOut(" - Formulário origem.......: " + AllTrim(aErro[1]))
+		ConOut(" - Campo origem............: " + AllTrim(aErro[2]))
+		ConOut(" - Formulário com erro.....: " + AllTrim(aErro[3]))
+		ConOut(" - Campo com erro..........: " + AllTrim(aErro[4]))
+		ConOut(" - ID do erro..............: " + AllTrim(aErro[5]))
+		ConOut(" - Mensagem do erro........: " + AllTrim(aErro[6]))
+		ConOut(" - Solução sugerida........: " + AllTrim(aErro[7]))
+		ConOut(" - Valor atribuído.........: " + AllTrim(aErro[8]))
+		ConOut(" - Valor anterior..........: " + AllTrim(aErro[9]))
+
+		xRet["erro"]     := .T.
+		xRet["mensagem"] := aErro[6]
+	EndIf
+
+	oModel:DeActivate()
+
+	ConOut("[WSCLIENTE][EXECUTA] Fim da execução da operação via modelo")
+
+Return xRet
+
+/********************************************************************************************************/
+/** Valida campos do JSON de acordo com a estrutura da tabela SA1
+/********************************************************************************************************/
+Static Function ValidaCamposJson(jsonBody) 
+	Local aCampos     := {}
+	Local cCampoJson  := ""
+	Local xValorJson  := Nil
+	Local cTipo       := ""
+	Local nTamanho    := 0
+	Local nDecimais   := 0
+	Local aMapCampos  := {}
+	Local xRet        := JsonObject():New()
+	Local nIdx        := 0
+	Local cNomeTabela := ""
+
+	xRet["erro"]     := .F.
+	xRet["mensagem"] := ""
+
+	aMapCampos := { ;
+		{"A1_COD",      "codigo"}, ;
+		{"A1_LOJA",     "loja"}, ;
+		{"A1_NOME",     "nome"}, ;
+		{"A1_NREDUZ",   "nomeReduzido"}, ;
+		{"A1_END",      "endereco"}, ;
+		{"A1_BAIRRO",   "bairro"}, ;
+		{"A1_TIPO",     "tipo"}, ;
+		{"A1_EST",      "estado"}, ;
+		{"A1_COD_MUN",  "cod_ibge"}, ;
+		{"A1_MUN",      "cidade"}, ;
+		{"A1_CEP",      "cep"}, ;
+		{"A1_INSCR",    "inscricaoEstadual"}, ;
+		{"A1_CGC",      "cpfCnpj"}, ;
+		{"A1_PAIS",     "pais"}, ;
+		{"A1_EMAIL",    "email"}, ;
+		{"A1_DDD",      "ddd"}, ;
+		{"A1_TEL",      "telefone"}, ;
+		{"A1_PESSOA",   "tipoPessoa"} }
+
+	DbSelectArea("SA1")
+	SA1->(DbSetOrder(1))
+	aCampos := SA1->(DbStruct())
+
+	For nI := 1 To Len(aMapCampos)
+		aItem := aMapCampos[nI]
+		cNomeTabela := aItem[1]
+		cCampoJson  := aItem[2]
+		xValorJson  := jsonBody[cCampoJson]
+		nIdx := AScan(aCampos, {|x| x[1] == cNomeTabela})
+
+		If nIdx <= 0
+			ConOut("[WSCLIENTE][VALIDA] Campo não encontrado na tabela: " + cNomeTabela)
+			Loop
+		EndIf
+
+		cTipo     := aCampos[nIdx][2]
+		nTamanho  := aCampos[nIdx][3]
+		nDecimais := aCampos[nIdx][4]
+
+		// Validação de tipo
+		Do Case
+			Case cTipo == "C" .And. ValType(xValorJson) != "C"
+				xRet["erro"] := .T.
+				xRet["mensagem"] := "Campo " + cCampoJson + " deveria ser caractere."
+				Exit
+
+			Case cTipo == "N" .And. ValType(xValorJson) != "N" .And. !IsNumeric(xValorJson)
+				xRet["erro"] := .T.
+				xRet["mensagem"] := "Campo " + cCampoJson + " deveria ser numérico."
+				Exit
+
+			Case cTipo == "D" .And. !Empty(xValorJson) .And. !IsDate(xValorJson)
+				xRet["erro"] := .T.
+				xRet["mensagem"] := "Campo " + cCampoJson + " deveria ser data."
+				Exit
+		EndCase
+
+		If cTipo == "C" .And. Len(AllTrim(xValorJson)) > nTamanho
+			xRet["erro"] := .T.
+			xRet["mensagem"] := "Campo " + cCampoJson + " excede o tamanho máximo de " + AllTrim(Str(nTamanho)) + " caracteres."
+			Exit
+		EndIf
+	Next
+
+Return xRet

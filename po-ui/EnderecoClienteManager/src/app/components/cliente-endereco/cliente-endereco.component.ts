@@ -43,7 +43,6 @@ export class ClienteEnderecoComponent implements OnInit {
   clienteSelecionado: Cliente | null = null;
   modalAberto = false;
   modalEditar = false;
-  modalVisualizacao = false;
   modalCep = false;
   carregando = false;
   novoCep = '';
@@ -53,11 +52,12 @@ export class ClienteEnderecoComponent implements OnInit {
   tableColumns: PoTableColumn[] = [
     { property: 'codigo', label: 'Código', width: '10%' },
     { property: 'loja', label: 'Loja', width: '8%' },
-    { property: 'endereco', label: 'Endereço', width: '25%' },
-    { property: 'bairro', label: 'Bairro', width: '20%' },
-    { property: 'cidade', label: 'Cidade', width: '15%' },
+    { property: 'nome', label: 'Nome', width: '14%' },
+    { property: 'endereco', label: 'Endereço', width: '23%' },
+    { property: 'bairro', label: 'Bairro', width: '16%' },
+    { property: 'municipio', label: 'Município', width: '11%' },
     { property: 'estado', label: 'Estado', width: '10%' },
-    { property: 'cep', label: 'CEP', width: '12%' }
+    { property: 'cep', label: 'CEP', width: '8%' }
   ];
 
   tableActions: PoTableAction[] = [
@@ -71,12 +71,6 @@ export class ClienteEnderecoComponent implements OnInit {
       action: this.alterarPorCep.bind(this),
       label: 'Alterar por CEP',
       icon: 'po-icon-location',
-      type: 'secondary'
-    },
-    {
-      action: this.visualizarCliente.bind(this),
-      label: 'Visualizar',
-      icon: 'po-icon-eye',
       type: 'secondary'
     }
   ];
@@ -126,7 +120,7 @@ export class ClienteEnderecoComponent implements OnInit {
       numero: [''],
       complemento: [''],
       bairro: ['', Validators.required],
-      cidade: ['', Validators.required],
+      municipio: ['', Validators.required],
       estado: ['', [Validators.required, Validators.maxLength(2)]]
     });
   }
@@ -168,7 +162,7 @@ export class ClienteEnderecoComponent implements OnInit {
       numero: cliente.numero,
       complemento: cliente.complemento,
       bairro: cliente.bairro,
-      cidade: cliente.cidade,
+      municipio: cliente.municipio,
       estado: cliente.estado
     });
     this.modalAberto = true;
@@ -184,7 +178,7 @@ export class ClienteEnderecoComponent implements OnInit {
           this.form.patchValue({
             endereco: endereco.logradouro,
             bairro: endereco.bairro,
-            cidade: endereco.localidade,
+            municipio: endereco.localidade,
             estado: endereco.uf
           });
           this.carregando = false;
@@ -248,26 +242,6 @@ export class ClienteEnderecoComponent implements OnInit {
   }
 
   /**
-   * Método para visualizar dados do cliente
-   */
-  visualizarCliente(cliente: Cliente): void {
-    this.clienteSelecionado = cliente;
-    this.form.patchValue({
-      codigo: cliente.codigo,
-      loja: cliente.loja,
-      nome: cliente.nome,
-      cep: cliente.cep,
-      endereco: cliente.endereco,
-      numero: cliente.numero,
-      complemento: cliente.complemento,
-      bairro: cliente.bairro,
-      cidade: cliente.cidade,
-      estado: cliente.estado
-    });
-    this.modalVisualizacao = true;
-  }
-
-  /**
    * Atualiza endereço apenas via CEP (sem abrir modal completo)
    */
   atualizarApenasCep(cep: string): void {
@@ -293,8 +267,7 @@ export class ClienteEnderecoComponent implements OnInit {
         const dadosEndereco = {
           cep: cepLimpo,
           endereco: endereco.logradouro || '',
-          bairro: endereco.bairro || '',
-          cidade: endereco.localidade || '',
+          municipio: endereco.localidade || '',
           estado: endereco.uf || ''
         };
 
@@ -321,14 +294,6 @@ export class ClienteEnderecoComponent implements OnInit {
         this.carregando = false;
       }
     });
-  }
-
-  /**
-   * Fecha modal de visualização
-   */
-  fecharModalVisualizacao(): void {
-    this.modalVisualizacao = false;
-    this.clienteSelecionado = null;
   }
 
   /**
@@ -360,7 +325,7 @@ export class ClienteEnderecoComponent implements OnInit {
           this.form.patchValue({
             endereco: endereco.logradouro,
             bairro: endereco.bairro,
-            cidade: endereco.localidade,
+            municipio: endereco.localidade,
             estado: endereco.uf
           });
           this.carregando = false;

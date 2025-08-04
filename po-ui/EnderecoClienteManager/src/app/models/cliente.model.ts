@@ -1,18 +1,18 @@
 export interface Cliente {
   codigo: string;
   loja: string;
+  nome: string;
   endereco: string;
   bairro: string;
   estado: string;
   cep: string;
   // Campos opcionais que podem vir de outras APIs
-  nome?: string;
   tipo?: string;
   cnpjCpf?: string;
   inscricaoEstadual?: string;
   numero?: string;
   complemento?: string;
-  cidade?: string;
+  municipio?: string;
   telefone?: string;
   email?: string;
   observacoes?: string;
@@ -32,7 +32,7 @@ export interface ClienteForm {
   numero?: string;
   complemento?: string;
   bairro: string;
-  cidade: string;
+  municipio: string;
   estado: string;
   cep: string;
   telefone?: string;
@@ -57,7 +57,7 @@ export interface ClienteFilter {
   codigo?: string;
   loja?: string;
   nome?: string;
-  cidade?: string;
+  municipio?: string;
   estado?: string;
   ativo?: boolean;
 }

@@ -62,7 +62,7 @@ User Function CLIMPORT()
 Return
 
 Static Function ImportaEndereco(cArquivo)
-    Local aHeaderEsperado := {"CODIGO", "LOJA", "CEP", "ENDERECO", "COMPLEMENTO", "BAIRRO", "CIDADE", "UF"}
+    Local aHeaderEsperado := {"CODIGO", "LOJA", "CEP", "ENDERECO", "COMPLEMENTO", "BAIRRO", "MUNICIPIO", "UF"}
     Local aHeaderLido := {}
     Local lHeaderValido := .T.
     Local nAtualizados := 0
@@ -100,7 +100,6 @@ Static Function ImportaEndereco(cArquivo)
         Return
     EndIf
 
-    // Validação do cabeçalho
     aHeaderLido := StrTokArr(AllTrim(aLinhas[1]), ";")
 
     If Len(aHeaderLido) != Len(aHeaderEsperado)
@@ -170,46 +169,3 @@ Static Function ImportaEndereco(cArquivo)
 
     FWAlertInfo("Importação finalizada. Clientes atualizados: " + Str(nAtualizados), "Sucesso")
 Return
-
-Static Function ConsultaCEP(cCEP)
-    Local aArea        := FWGetArea()
-    Local aHeader      := {}
-    Local oRestClient  := FWRest():New("https://viacep.com.br/ws")
-    Local oJson        := JsonObject():New()
-    Local oResult      := Nil
-    Local cMensagem    := ""
-    Local cResp        := ""
-
-
-    aAdd(aHeader, 'User-Agent: Mozilla/4.0 (compatible; Protheus ' + GetBuild() + ')')
-    aAdd(aHeader, 'Content-Type: application/json; charset=utf-8')
-
-    oRestClient:SetPath("/" + cCEP + "/json/")
-
-    If oRestClient:Get(aHeader)
-        cResp := oRestClient:GetResult()
-
-        If Empty(cResp)
-            ConOut("[ViaCEP][ERRO] Resposta vazia para CEP: " + cCEP)
-            FWRestArea(aArea)
-            Return Nil
-        EndIf
-
-        oJson:FromJson(cResp)
-
-        If oJson:GetJsonObject("erro") == "true"
-            cMensagem := "O CEP informado no cadastro de cliente não consta na base de dados da consulta pública."
-            ConOut("[ViaCEP][ERRO] " + cMensagem + " CEP: " + cCEP)
-            FWRestArea(aArea)
-            Return Nil
-        EndIf
-    Else
-        ConOut("[ViaCEP][ERRO] Falha na comunicação com o serviço para CEP: " + cCEP)
-        FWRestArea(aArea)
-        Return Nil
-    EndIf
-
-    oResult := oJson
-
-    FWRestArea(aArea)
-Return oResult

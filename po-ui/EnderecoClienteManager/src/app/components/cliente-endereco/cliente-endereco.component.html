@@ -86,7 +86,7 @@
         <po-input p-label="Bairro" formControlName="bairro"></po-input>
       </div>
       <div class="po-md-6">
-        <po-input p-label="Cidade" formControlName="cidade"></po-input>
+        <po-input p-label="Município" formControlName="municipio"></po-input>
       </div>
       <div class="po-md-2">
         <po-input p-label="Estado" formControlName="estado"></po-input>
@@ -107,47 +107,6 @@
         </po-button>
       </div>
     </div>
-  </po-modal>
-
-  <!-- Modal de Visualização -->
-  <po-modal
-    p-title="Dados do Cliente"
-    *ngIf="modalVisualizacao"
-    p-size="lg"
-    (p-close)="fecharModalVisualizacao()">
-    
-    <form [formGroup]="form" class="po-row">
-      <div class="po-md-6">
-        <po-input p-label="Código" formControlName="codigo" p-readonly="true"></po-input>
-      </div>
-      <div class="po-md-6">
-        <po-input p-label="Loja" formControlName="loja" p-readonly="true"></po-input>
-      </div>
-      <div class="po-md-12">
-        <po-input p-label="Nome" formControlName="nome" p-readonly="true"></po-input>
-      </div>
-      <div class="po-md-4">
-        <po-input p-label="CEP" formControlName="cep" p-readonly="true"></po-input>
-      </div>
-      <div class="po-md-8">
-        <po-input p-label="Endereço" formControlName="endereco" p-readonly="true"></po-input>
-      </div>
-      <div class="po-md-3">
-        <po-input p-label="Número" formControlName="numero" p-readonly="true"></po-input>
-      </div>
-      <div class="po-md-9">
-        <po-input p-label="Complemento" formControlName="complemento" p-readonly="true"></po-input>
-      </div>
-      <div class="po-md-4">
-        <po-input p-label="Bairro" formControlName="bairro" p-readonly="true"></po-input>
-      </div>
-      <div class="po-md-6">
-        <po-input p-label="Cidade" formControlName="cidade" p-readonly="true"></po-input>
-      </div>
-      <div class="po-md-2">
-        <po-input p-label="Estado" formControlName="estado" p-readonly="true"></po-input>
-      </div>
-    </form>
   </po-modal>
 
   <!-- Modal para Atualização por CEP -->

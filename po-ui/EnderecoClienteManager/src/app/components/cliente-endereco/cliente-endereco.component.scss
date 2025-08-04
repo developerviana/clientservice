@@ -1,13 +1,13 @@
-// Estilização moderna com fundo azul
+// Estilização moderna com fundo azul escuro
 :host {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #1e3c72 100%);
   display: block;
 }
 
 .container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #1e3c72 100%);
   padding: 0;
 }
 
@@ -24,7 +24,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  max-width: 1400px; // Aumentado de 1200px para 1400px
+  max-width: 1500px; 
   margin: 0 auto;
 }
 
@@ -65,7 +65,7 @@
 // Estilização da página
 ::ng-deep .po-page-default {
   background: transparent !important;
-  max-width: 1400px !important; // Aumentado de 1200px para 1400px
+  max-width: 1500px !important; 
   margin: 0 auto !important;
   padding: 0 20px !important;
   
@@ -91,7 +91,7 @@
 
 // Container da lista de clientes
 .clientes-lista-container {
-  max-width: 1400px; // Aumentado de 1200px para 1400px
+  max-width: 1500px; 
   margin: 0 auto;
   padding: 0 20px;
   
@@ -107,7 +107,7 @@
 
 // Container centralizado com visual moderno
 .content-centered {
-  max-width: 1400px; // Aumentado de 1200px para 1400px
+  max-width: 1500px; 
   margin: 0 auto;
   padding: 0 20px;
 }
@@ -120,7 +120,9 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.2);
   margin-bottom: 20px;
-  min-height: 500px; // Adicionado altura mínima
+  min-height: 700px;
+  width: 100%;
+  max-width: 1500px; 
 }
 
 // Estilização da tabela
@@ -137,7 +139,7 @@
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      font-size: 0.9rem;
+      font-size: 0.75rem;
     }
   }
   
@@ -208,6 +210,146 @@
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
       }
+    }
+  }
+}
+
+// Correção para posicionamento do menu de ações (3 pontinhos)
+::ng-deep .po-table-actions-popover {
+  position: relative !important;
+}
+
+// Força posicionamento específico para o popup das ações da tabela
+::ng-deep .po-popup {
+  position: absolute !important;
+  z-index: 9999 !important;
+  transform: none !important;
+}
+
+::ng-deep .po-popup-container {
+  position: absolute !important;
+  z-index: 9999 !important;
+  transform: none !important;
+}
+
+::ng-deep .po-table-column-actions {
+  position: relative !important;
+  
+  .po-popup {
+    position: absolute !important;
+    top: 100% !important;
+    right: 0 !important;
+    left: auto !important;
+    z-index: 9999 !important;
+    margin-top: 2px !important;
+    transform: none !important;
+  }
+  
+  .po-popup-container {
+    position: absolute !important;
+    top: 100% !important;
+    right: 0 !important;
+    left: auto !important;
+    z-index: 9999 !important;
+    margin-top: 2px !important;
+    transform: none !important;
+  }
+}
+
+// Menu dropdown das ações
+::ng-deep .po-popup-content {
+  background: rgba(255, 255, 255, 0.98) !important;
+  backdrop-filter: blur(10px) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  min-width: 180px !important;
+  
+  .po-list-item {
+    transition: all 0.3s ease !important;
+    border-radius: 8px !important;
+    margin: 2px !important;
+    
+    &:hover {
+      background: rgba(52, 152, 219, 0.1) !important;
+      transform: translateX(5px) !important;
+    }
+    
+    .po-list-item-label {
+      color: #2c3e50 !important;
+      font-weight: 500 !important;
+    }
+  }
+}
+
+// Botão dos 3 pontinhos (more actions)
+::ng-deep .po-table-action-more {
+  position: relative !important;
+  
+  .po-popup,
+  .po-popup-container {
+    position: absolute !important;
+    top: calc(100% + 2px) !important;
+    right: 0 !important;
+    left: auto !important;
+    z-index: 10000 !important;
+    transform: none !important;
+    margin: 0 !important;
+  }
+}
+
+// Força o popup a ficar próximo ao botão
+::ng-deep .po-table-column-actions .po-popup-arrow {
+  display: none !important;
+}
+
+// CSS adicional para garantir posicionamento correto
+::ng-deep .po-table .po-table-row .po-table-column-actions {
+  position: relative !important;
+  overflow: visible !important;
+}
+
+::ng-deep .po-table {
+  overflow: visible !important;
+}
+
+::ng-deep .table-container {
+  overflow: visible !important;
+}
+
+// Força todos os popups da tabela a ficarem na posição correta
+::ng-deep .po-table-column-actions po-popup,
+::ng-deep .po-table-column-actions .po-popup,
+::ng-deep .po-table-action-more po-popup,
+::ng-deep .po-table-action-more .po-popup {
+  position: absolute !important;
+  top: 100% !important;
+  right: 0 !important;
+  left: auto !important;
+  z-index: 10001 !important;
+  transform: none !important;
+  margin: 2px 0 0 0 !important;
+}
+
+// Ajuste global para todos os popups da tabela
+::ng-deep .table-container {
+  // Garantir que o container da tabela tenha posição relativa
+  position: relative !important;
+  
+  .po-table {
+    // Força o overflow visível para os popups
+    overflow: visible !important;
+    
+    .po-table-body {
+      overflow: visible !important;
+    }
+    
+    .po-table-row {
+      overflow: visible !important;
+    }
+    
+    .po-table-cell {
+      overflow: visible !important;
     }
   }
 }
@@ -367,4 +509,42 @@
       font-size: 1.4rem !important;
     }
   }
+}
+
+// Correção específica para o menu de ações da tabela
+::ng-deep .po-table-actions {
+  position: relative !important;
+  overflow: visible !important;
+}
+
+::ng-deep .po-table-column-actions {
+  position: relative !important;
+  overflow: visible !important;
+}
+
+// Força o popup a aparecer corretamente
+::ng-deep .po-popup {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: absolute !important;
+  z-index: 10000 !important;
+}
+
+::ng-deep .po-popup-container {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: absolute !important;
+  z-index: 10000 !important;
+}
+
+// Regra específica para garantir que o popup das ações seja exibido
+::ng-deep .po-table-column-actions .po-popup,
+::ng-deep .po-table-actions .po-popup {
+  top: calc(100% + 2px) !important;
+  right: 0 !important;
+  left: auto !important;
+  min-width: 150px !important;
+  max-width: 200px !important;
 }
