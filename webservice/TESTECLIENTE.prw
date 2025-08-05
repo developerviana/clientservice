@@ -46,7 +46,7 @@ User Function TESTINSERT()
     Else
         ConOut("[TESTINSERT] ERRO: " + oResponse["mensagem"])
     EndIf
-
+    
 Return
 
 /*------------------------------------------------------------------------//
@@ -62,28 +62,26 @@ User Function TESTUPDATE()
     ConOut("[TESTUPDATE] ========== TESTE DE ALTERACAO ==========")
     ConOut("[TESTUPDATE] Alterando cliente: " + cCodigo + "-" + cLoja)
 
-    // Verifica se cliente existe antes de alterar
     SA1->(DbSetOrder(1))
     If !SA1->(DbSeek(xFilial("SA1") + cCodigo + cLoja))
         ConOut("[TESTUPDATE] ERRO: Cliente nao encontrado. Execute TESTINSERT primeiro!")
         Return
     EndIf
 
-    // Monta JSON para alteração
     oRequest["codigo"]       := cCodigo
     oRequest["loja"]         := cLoja
-    oRequest["nome"]         := "CLIENTE TESTE ALTERADO " + Time()
-    oRequest["nomeReduzido"] := "TESTE ALT"
-    oRequest["endereco"]     := "RUA ALTERADA, 999"
-    oRequest["bairro"]       := "NOVO BAIRRO"
-    oRequest["email"]        := "alterado@teste.com.br"
-    oRequest["telefone"]     := "11223344"
-    oRequest["cep"]          := "04038001"
+    oRequest["nome"]         := "COMERCIAL ABC MATRIZ"
+    oRequest["nomeReduzido"] := "ABC MATRIZ"
+    oRequest["endereco"]     := "RUA JONATHAS PEDROSA"
+    oRequest["bairro"]       := "CENTRO COMERCIAL"
+    oRequest["estado"]       := "AM"
+    oRequest["cidade"]       := "MANAUS"
+    oRequest["cep"]          := "69005010"
+    oRequest["pais"]         := "105"
 
     ConOut("[TESTUPDATE] JSON para alteracao:")
     ConOut("[TESTUPDATE] " + oRequest:ToJson())
 
-    // Executa alteração
     oResponse := oService:AlterarClienteService(oRequest)
     
     ConOut("[TESTUPDATE] ========== RESULTADO ==========")
@@ -109,7 +107,6 @@ User Function TESTDELETE()
     ConOut("[TESTDELETE] ========== TESTE DE EXCLUSAO ==========")
     ConOut("[TESTDELETE] Excluindo cliente: " + cCodigo + "-" + cLoja)
 
-    // Verifica se cliente existe antes de excluir
     SA1->(DbSetOrder(1))
     If !SA1->(DbSeek(xFilial("SA1") + cCodigo + cLoja))
         ConOut("[TESTDELETE] ERRO: Cliente nao encontrado para exclusao!")
@@ -121,7 +118,6 @@ User Function TESTDELETE()
     ConOut("[TESTDELETE] Nome: " + SA1->A1_NOME)
     ConOut("[TESTDELETE] Nome Reduz: " + SA1->A1_NREDUZ)
 
-    // Executa exclusão
     oResponse := oService:ExcluirClienteService(cCodigo, cLoja)
     
     ConOut("[TESTDELETE] ========== RESULTADO ==========")
@@ -130,7 +126,6 @@ User Function TESTDELETE()
     If !oResponse["erro"]
         ConOut("[TESTDELETE] SUCESSO: Cliente excluido com sucesso!")
         
-        // Verifica se realmente foi excluído
         SA1->(DbSetOrder(1))
         If !SA1->(DbSeek(xFilial("SA1") + cCodigo + cLoja))
             ConOut("[TESTDELETE] CONFIRMADO: Cliente nao existe mais na base!")

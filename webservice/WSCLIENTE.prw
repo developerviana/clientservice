@@ -193,7 +193,6 @@ WSMETHOD PUT ALTERARCLIENTE WSSERVICE WSCLIENTE
 	Local cCodigo := ::aURLParms[1]
 	Local cLoja := ::aURLParms[2]
 	Local xResponse := JsonObject():New()
-	Local oConsultaCEP   := Nil
 	Local aMapCampos  := {}
 
 	aMapCampos := { ;
@@ -209,7 +208,7 @@ WSMETHOD PUT ALTERARCLIENTE WSSERVICE WSCLIENTE
 	jsonBody["codigo"] := cCodigo
 	jsonBody["loja"] := cLoja
 
-	oConsultaCEP := ClienteMsExecService():ConsultaCEP(jsonBody["cep"])
+	ClienteMsExecService():BuscarEnderecoCEP(jsonBody["cep"])
 
 	If jsonToken <> NIL
 		If !ClienteMsExecService():fPermissoes(jsonToken, "CLIENTE", "alterar")
@@ -222,30 +221,8 @@ WSMETHOD PUT ALTERARCLIENTE WSSERVICE WSCLIENTE
 			Return .F.
 		EndIf
 	EndIf
-	
-	If oConsultaCEP != Nil
-    
-		If !jsonBody:HasProperty("endereco") .OR. Empty(jsonBody["endereco"])
-			jsonBody["endereco"] := oConsultaCEP["logradouro"]
-		EndIf
 
-		If !jsonBody:HasProperty("bairro") .OR. Empty(jsonBody["bairro"])
-			jsonBody["bairro"] := oConsultaCEP["bairro"]
-		EndIf
-		
-		If !jsonBody:HasProperty("cidade") .OR. Empty(jsonBody["cidade"])
-			jsonBody["cidade"] := oConsultaCEP["localidade"] 
-		EndIf
-		
-		If !jsonBody:HasProperty("estado") .OR. Empty(jsonBody["estado"])
-			jsonBody["estado"] := oConsultaCEP["uf"]
-		EndIf
-
-		If !jsonBody:HasProperty("cep") .OR. Empty(jsonBody["cep"])
-			jsonBody["cep"] := oConsultaCEP["cep"]
-		EndIf
-		
-	EndIf
+	ConOut("[WSCLIENTE][PUT] Chamando ExecutaMsCliente")
 
 	xResponse := ExecutaMsCliente(jsonBody, 4, aMapCampos) 
 
@@ -452,9 +429,9 @@ Static Function ExecutaMsCliente(jsonBody, nOpcAuto, aMapCampos)
 		
 		ConOut("Fim: " + Time())
 
-    ElseIf nOpcAuto == 4  // ALTERAÇÃO
+    ElseIf nOpcAuto == 3  // ALTERAÇÃO
 
-	ConOut("Teste de Inclusao")
+		ConOut("Teste de Inclusao")
 		ConOut("Inicio: " + Time())
 
 		oModel := FWLoadModel("CRMA980") 
