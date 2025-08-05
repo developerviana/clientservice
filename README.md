@@ -62,16 +62,16 @@ clientservices/
 ### Exemplos de retorno das APIs
 
 **POST**
-![POST retorno]([image.png](https://github.com/developerviana/clientservice/blob/main/img/image-1.png?raw=true))
+![POST retorno](img/image.png)
 
 **PUT**
-![PUT retorno](image-1.png)
+![PUT retorno](img/image-1.png)
 
 **DELETE**
-![DELETE retorno](image-2.png)
+![DELETE retorno](img/image-2.png)
 
 **GET**
-![GET retorno](image-3.png)
+![GET retorno](img/image-3.png)
 
 
 ### 3. Programa de Importação
