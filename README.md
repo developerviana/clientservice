@@ -62,7 +62,7 @@ clientservices/
 ### Exemplos de retorno das APIs
 
 **POST**
-![POST retorno](image.png)
+![POST retorno]([image.png](https://github.com/developerviana/clientservice/blob/main/img/image-1.png?raw=true))
 
 **PUT**
 ![PUT retorno](image-1.png)
