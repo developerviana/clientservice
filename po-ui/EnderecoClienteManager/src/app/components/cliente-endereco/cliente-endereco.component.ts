@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
@@ -11,9 +11,8 @@ import {
   PoTableModule,
   PoNotificationService,
   PoTableColumn,
-  PoTableAction,
   PoModalAction,
-  PoPageAction
+  PoModalComponent
 } from '@po-ui/ng-components';
 
 import { ClienteEnderecoService } from '../../services/cliente-endereco.service';
@@ -38,15 +37,26 @@ import { Cliente } from '../../models/cliente.model';
 })
 export class ClienteEnderecoComponent implements OnInit {
   
+  // ViewChild para acessar os modais seguindo a documentação do PO-UI
+  @ViewChild('modalIncluir', { static: false }) modalIncluir!: PoModalComponent;
+  @ViewChild('modalEditar', { static: false }) modalEditar!: PoModalComponent;
+  @ViewChild('modalExcluir', { static: false }) modalExcluir!: PoModalComponent;
+  
+  // Formulários
   form!: FormGroup;
+  formAlterarWS!: FormGroup;
+  formIncluir!: FormGroup;
+  
+  // Dados
   clientes: Cliente[] = [];
   clienteSelecionado: Cliente | null = null;
-  modalAberto = false;
-  modalEditar = false;
-  modalCep = false;
   carregando = false;
-  novoCep = '';
   usuarioLogado = 'admin';
+  
+  // Para compatibilidade com modais antigos
+  modalAberto = false;
+  modalCep = false;
+  novoCep = '';
 
   // Configurações da tabela
   tableColumns: PoTableColumn[] = [
@@ -60,57 +70,73 @@ export class ClienteEnderecoComponent implements OnInit {
     { property: 'cep', label: 'CEP', width: '8%' }
   ];
 
-  tableActions: PoTableAction[] = [
-    {
-      action: this.editarEndereco.bind(this),
-      label: 'Alterar',
-      icon: 'po-icon-edit',
-      type: 'primary'
-    },
-    {
-      action: this.alterarPorCep.bind(this),
-      label: 'Alterar por CEP',
-      icon: 'po-icon-location',
-      type: 'secondary'
-    }
-  ];
+  // Ações dos modais seguindo exatamente a documentação do PO-UI
+  acaoSalvarInclusao: PoModalAction = {
+    label: 'Salvar',
+    action: () => this.salvarNovoCliente(),
+    loading: false
+  };
 
-  pageActions: PoPageAction[] = [
-    {
-      label: 'Atualizar Lista',
-      action: this.carregarClientes.bind(this),
-      icon: 'po-icon-refresh'
-    }
-  ];
+  acaoSalvarEdicao: PoModalAction = {
+    label: 'Salvar',
+    action: () => this.salvarClienteWS(),
+    loading: false
+  };
 
-  modalActions: PoModalAction[] = [
-    {
-      label: 'Salvar',
-      action: () => this.salvarEndereco(),
-      danger: false
-    },
-    {
-      label: 'Cancelar',
-      action: () => this.fecharModal(),
-      danger: true
-    }
-  ];
+  acaoConfirmarExclusao: PoModalAction = {
+    label: 'Excluir',
+    action: () => this.confirmarExclusao(),
+    danger: true,
+    loading: false
+  };
+
+  acaoCancelar: PoModalAction = {
+    label: 'Cancelar',
+    action: () => this.fecharTodosModais()
+  };
 
   constructor(
     private fb: FormBuilder,
     private clienteService: ClienteEnderecoService,
     private authService: AuthService,
     private router: Router,
-    private notification: PoNotificationService
+    private notification: PoNotificationService,
+    private cdr: ChangeDetectorRef
   ) {
-    this.inicializarForm();
+    this.inicializarForms();
   }
 
   ngOnInit(): void {
     this.carregarClientes();
   }
 
-  private inicializarForm(): void {
+  private inicializarForms(): void {
+    // Form para inclusão
+    this.formIncluir = this.fb.group({
+      codigo: ['', Validators.required],
+      loja: ['', Validators.required],
+      nome: ['', Validators.required],
+      fantasia: [''],
+      cpf: ['', Validators.required],
+      cep: [''],
+      endereco: [''],
+      bairro: [''],
+      cidade: [''],
+      estado: ['']
+    });
+
+    // Form para edição
+    this.formAlterarWS = this.fb.group({
+      nome: ['', Validators.required],
+      nomeReduzido: ['', Validators.required],
+      cep: [''],
+      endereco: [''],
+      cidade: [''],
+      estado: [''],
+      pais: ['105']
+    });
+
+    // Form principal (para compatibilidade)
     this.form = this.fb.group({
       codigo: ['', Validators.required],
       loja: ['', Validators.required],
@@ -125,11 +151,139 @@ export class ClienteEnderecoComponent implements OnInit {
     });
   }
 
+  // Métodos para abrir modais seguindo a documentação do PO-UI
+  abrirModalIncluir(): void {
+    this.formIncluir.reset();
+    this.modalIncluir.open();
+  }
+
+  abrirModalEditar(): void {
+    if (this.clienteSelecionado) {
+      this.formAlterarWS.patchValue({
+        nome: this.clienteSelecionado.nome || '',
+        nomeReduzido: this.clienteSelecionado.nome?.substring(0, 15) || '',
+        cep: this.clienteSelecionado.cep || '',
+        endereco: this.clienteSelecionado.endereco || '',
+        cidade: this.clienteSelecionado.municipio || '',
+        estado: this.clienteSelecionado.estado || '',
+        pais: '105'
+      });
+      this.modalEditar.open();
+    } else {
+      this.notification.warning('Selecione um cliente para editar.');
+    }
+  }
+
+  abrirModalExcluir(): void {
+    if (this.clienteSelecionado) {
+      this.modalExcluir.open();
+    } else {
+      this.notification.warning('Selecione um cliente para excluir.');
+    }
+  }
+
+  // Método para fechar todos os modais
+  fecharTodosModais(): void {
+    this.modalIncluir?.close();
+    this.modalEditar?.close();
+    this.modalExcluir?.close();
+  }
+
+  // Método para salvar novo cliente
+  salvarNovoCliente(): void {
+    if (this.formIncluir.valid) {
+      this.carregando = true;
+      this.acaoSalvarInclusao.loading = true;
+      
+      const novoCliente = this.formIncluir.value;
+      
+      this.clienteService.incluirCliente(novoCliente).subscribe({
+        next: (response: any) => {
+          this.notification.success('Cliente incluído com sucesso!');
+          this.fecharTodosModais();
+          this.carregarClientes();
+          this.carregando = false;
+          this.acaoSalvarInclusao.loading = false;
+        },
+        error: (error: any) => {
+          this.notification.error('Erro ao incluir cliente: ' + (error.message || 'Erro desconhecido'));
+          this.carregando = false;
+          this.acaoSalvarInclusao.loading = false;
+        }
+      });
+    } else {
+      this.notification.warning('Preencha todos os campos obrigatórios.');
+    }
+  }
+
+  // Método para salvar edição de cliente
+  salvarClienteWS(): void {
+    if (this.formAlterarWS.valid && this.clienteSelecionado) {
+      this.carregando = true;
+      this.acaoSalvarEdicao.loading = true;
+      
+      const dados = this.formAlterarWS.value;
+      
+      this.clienteService.alterarClienteWS(
+        this.clienteSelecionado.codigo,
+        this.clienteSelecionado.loja,
+        dados
+      ).subscribe({
+        next: (response: any) => {
+          this.notification.success('Cliente atualizado com sucesso!');
+          this.fecharTodosModais();
+          this.carregarClientes();
+          this.carregando = false;
+          this.acaoSalvarEdicao.loading = false;
+        },
+        error: (error: any) => {
+          this.notification.error('Erro ao atualizar cliente: ' + (error.message || 'Erro desconhecido'));
+          this.carregando = false;
+          this.acaoSalvarEdicao.loading = false;
+        }
+      });
+    } else {
+      this.notification.warning('Preencha todos os campos obrigatórios.');
+    }
+  }
+
+  // Método para confirmar exclusão
+  confirmarExclusao(): void {
+    if (this.clienteSelecionado) {
+      this.carregando = true;
+      this.acaoConfirmarExclusao.loading = true;
+      
+      this.clienteService.excluirCliente(
+        this.clienteSelecionado.codigo,
+        this.clienteSelecionado.loja
+      ).subscribe({
+        next: (response: any) => {
+          this.notification.success('Cliente excluído com sucesso!');
+          this.fecharTodosModais();
+          this.clienteSelecionado = null;
+          this.carregarClientes();
+          this.carregando = false;
+          this.acaoConfirmarExclusao.loading = false;
+        },
+        error: (error: any) => {
+          this.notification.error('Erro ao excluir cliente: ' + (error.message || 'Erro desconhecido'));
+          this.carregando = false;
+          this.acaoConfirmarExclusao.loading = false;
+        }
+      });
+    }
+  }
+
+  // Método para selecionar cliente na tabela
+  selecionarCliente(cliente: Cliente): void {
+    this.clienteSelecionado = cliente;
+  }
+
+  // Método para carregar lista de clientes
   carregarClientes(): void {
     this.carregando = true;
     this.clienteService.listarClientes().subscribe({
       next: (response: any) => {
-        // Verificar se a resposta tem a estrutura esperada
         if (response && response.dados && Array.isArray(response.dados)) {
           this.clientes = response.dados;
         } else if (Array.isArray(response)) {
@@ -137,7 +291,6 @@ export class ClienteEnderecoComponent implements OnInit {
         } else {
           this.clientes = [];
         }
-        
         this.carregando = false;
       },
       error: (error: any) => {
@@ -147,8 +300,46 @@ export class ClienteEnderecoComponent implements OnInit {
     });
   }
 
+  // Método para atualizar lista
   atualizarLista(): void {
     this.carregarClientes();
+  }
+
+  // Método para testar conexão com API
+  testarConexaoApi(): void {
+    console.log('🔄 Testando conexão com API...');
+    this.carregando = true;
+    
+    // Teste simples fazendo GET nos clientes
+    this.clienteService.listarClientes().subscribe({
+      next: (response: any) => {
+        console.log('✅ API funcionando! Resposta:', response);
+        this.notification.success('✅ Conexão com API funcionando!');
+        this.carregando = false;
+      },
+      error: (error: any) => {
+        console.error('❌ Erro na API:', error);
+        this.notification.error('❌ Erro na conexão: ' + error.message);
+        this.carregando = false;
+      }
+    });
+  }
+
+  // Método para logout
+  logout(): void {
+    this.authService.logout();
+    this.notification.success('Logout realizado com sucesso!');
+    this.router.navigate(['/login']);
+  }
+
+  // Métodos para compatibilidade com modais antigos
+  fecharModal(): void {
+    this.modalAberto = false;
+    this.modalCep = false;
+  }
+
+  fecharModalCep(): void {
+    this.modalCep = false;
   }
 
   editarEndereco(cliente: Cliente): void {
@@ -168,10 +359,43 @@ export class ClienteEnderecoComponent implements OnInit {
     this.modalAberto = true;
   }
 
-  buscarCep(): void {
-    const cep = this.form.get('cep')?.value?.replace(/\D/g, '');
-    
-    if (cep && cep.length === 8) {
+  salvarEndereco(): void {
+    if (this.form.valid && this.clienteSelecionado) {
+      this.carregando = true;
+      
+      const dadosEndereco = {
+        cep: this.form.value.cep?.replace(/\D/g, ''),
+        endereco: this.form.value.endereco,
+        numero: this.form.value.numero,
+        complemento: this.form.value.complemento,
+        bairro: this.form.value.bairro,
+        municipio: this.form.value.municipio,
+        estado: this.form.value.estado
+      };
+
+      this.clienteService.alterarCliente(
+        this.clienteSelecionado.codigo,
+        this.clienteSelecionado.loja,
+        dadosEndereco
+      ).subscribe({
+        next: (response: any) => {
+          this.notification.success('Endereço atualizado com sucesso!');
+          this.fecharModal();
+          this.carregarClientes();
+          this.carregando = false;
+        },
+        error: (error: any) => {
+          this.notification.error('Erro ao atualizar endereço.');
+          this.carregando = false;
+        }
+      });
+    } else {
+      this.notification.warning('Preencha todos os campos obrigatórios.');
+    }
+  }
+
+  buscarEnderecoPorCep(cep: string): void {
+    if (cep && cep.replace(/\D/g, '').length === 8) {
       this.carregando = true;
       this.clienteService.buscarCep(cep).subscribe({
         next: (endereco: any) => {
@@ -192,58 +416,11 @@ export class ClienteEnderecoComponent implements OnInit {
     }
   }
 
-  salvarEndereco(): void {
-    if (this.form.valid && this.clienteSelecionado) {
-      const dadosEndereco = this.form.value;
-      this.carregando = true;
-
-      this.clienteService.alterarCliente(
-        this.clienteSelecionado.codigo,
-        this.clienteSelecionado.loja,
-        dadosEndereco
-      ).subscribe({
-        next: (response: any) => {
-          this.notification.success('Endereço atualizado com sucesso!');
-          this.fecharModal();
-          this.carregarClientes();
-          this.carregando = false;
-        },
-        error: (error: any) => {
-          this.notification.error('Erro ao salvar endereço.');
-          this.carregando = false;
-        }
-      });
-    } else {
-      this.notification.warning('Preencha todos os campos obrigatórios.');
-    }
-  }
-
-  fecharModal(): void {
-    this.modalAberto = false;
-    this.modalEditar = false;
-    this.clienteSelecionado = null;
-    this.form.reset();
-  }
-
-  formatarCep(event: any): void {
-    let value = event.target.value.replace(/\D/g, '');
-    if (value.length > 5) {
-      value = value.replace(/^(\d{5})(\d{1,3})/, '$1-$2');
-    }
-    this.form.patchValue({ cep: value });
-  }
-
-  /**
-   * Método para alterar endereço apenas por CEP
-   */
   alterarPorCep(cliente: Cliente): void {
     this.clienteSelecionado = cliente;
     this.modalCep = true;
   }
 
-  /**
-   * Atualiza endereço apenas via CEP (sem abrir modal completo)
-   */
   atualizarApenasCep(cep: string): void {
     if (!cep || cep.length < 8) {
       this.notification.warning('Digite um CEP válido');
@@ -255,15 +432,11 @@ export class ClienteEnderecoComponent implements OnInit {
       return;
     }
 
-    // Remove formatação do CEP
     const cepLimpo = cep.replace(/\D/g, '');
-    
     this.carregando = true;
     
-    // Primeiro busca o endereço pelo CEP
     this.clienteService.buscarCep(cepLimpo).subscribe({
       next: (endereco: any) => {
-        // Monta os dados do endereço
         const dadosEndereco = {
           cep: cepLimpo,
           endereco: endereco.logradouro || '',
@@ -271,7 +444,6 @@ export class ClienteEnderecoComponent implements OnInit {
           estado: endereco.uf || ''
         };
 
-        // Atualiza o cliente com o novo endereço
         this.clienteService.alterarCliente(
           this.clienteSelecionado!.codigo,
           this.clienteSelecionado!.loja,
@@ -294,48 +466,5 @@ export class ClienteEnderecoComponent implements OnInit {
         this.carregando = false;
       }
     });
-  }
-
-  /**
-   * Fecha modal de CEP
-   */
-  fecharModalCep(): void {
-    this.modalCep = false;
-    this.clienteSelecionado = null;
-    this.novoCep = '';
-  }
-
-  /**
-   * Faz logout e redireciona para tela de login
-   */
-  logout(): void {
-    this.authService.logout();
-    this.notification.success('Logout realizado com sucesso!');
-    this.router.navigate(['/login']);
-  }
-
-  /**
-   * Busca endereço automaticamente quando CEP é alterado
-   */
-  buscarEnderecoPorCep(cep: string): void {
-    if (cep && cep.replace(/\D/g, '').length === 8) {
-      this.carregando = true;
-      this.clienteService.buscarCep(cep).subscribe({
-        next: (endereco: any) => {
-          this.form.patchValue({
-            endereco: endereco.logradouro,
-            bairro: endereco.bairro,
-            municipio: endereco.localidade,
-            estado: endereco.uf
-          });
-          this.carregando = false;
-          this.notification.success('Endereço encontrado!');
-        },
-        error: (error: any) => {
-          this.notification.warning('CEP não encontrado.');
-          this.carregando = false;
-        }
-      });
-    }
   }
 }

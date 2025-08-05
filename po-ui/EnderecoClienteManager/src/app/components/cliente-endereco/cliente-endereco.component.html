@@ -21,99 +21,250 @@
     
     <div class="po-row po-mb-2" style="align-items: center;">
       <div class="po-md-6">
-        <h2 class="po-m-0" style="text-align: left;">Gerenciamento de Endereços</h2>
+        <h2 class="po-m-0" style="text-align: left;">Gerenciamento de clientes</h2>
       </div>
       <div class="po-md-6 po-text-right">
         <po-button
           p-label="Atualizar Lista"
           p-icon="po-icon-refresh"
+          p-kind="tertiary"
           (p-click)="atualizarLista()">
         </po-button>
       </div>
     </div>
-
 
     <div class="content-centered">
       <div class="table-container">
         <po-table
           [p-columns]="tableColumns"
           [p-items]="clientes"
-          [p-actions]="tableActions"
           [p-loading]="carregando"
           p-sort="true"
           p-striped="true"
           p-show-more-disabled="false"
-          [p-height]="500">
+          [p-height]="500"
+          [p-hide-columns-manager]="true"
+          [p-single-select]="true"
+          [p-selectable]="true"
+          (p-selected)="selecionarCliente($event)">
         </po-table>
+        
+        <!-- Indicação do cliente selecionado -->
+        <div class="po-row po-mt-1" *ngIf="clienteSelecionado">
+          <div class="po-md-12">
+            <p class="po-text-color-08 po-font-text-small">
+              <strong>Cliente selecionado:</strong> {{clienteSelecionado.codigo}}/{{clienteSelecionado.loja}} - {{clienteSelecionado.nome}}
+            </p>
+          </div>
+        </div>
+        
+        <!-- Botões de ação abaixo da tabela -->
+        <div class="po-row po-mt-2">
+          <div class="po-md-12 po-text-right">
+            <po-button
+              p-label="Incluir"
+              p-icon="po-icon-plus"
+              p-kind="primary"
+              class="po-mr-1"
+              (p-click)="abrirModalIncluir()">
+            </po-button>
+            <po-button
+              p-label="Editar"
+              p-icon="po-icon-edit"
+              p-kind="secondary"
+              class="po-mr-1"
+              [p-disabled]="!clienteSelecionado"
+              (p-click)="abrirModalEditar()">
+            </po-button>
+            <po-button
+              p-label="Excluir"
+              p-icon="po-icon-delete"
+              p-kind="danger"
+              [p-disabled]="!clienteSelecionado"
+              (p-click)="abrirModalExcluir()">
+            </po-button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Modal de Edição Completa -->
+  <!-- Modal para Inclusão de Cliente -->
   <po-modal
-    p-title="Editar Endereço do Cliente"
-    *ngIf="modalEditar"
+    #modalIncluir
+    p-title="Incluir Novo Cliente"
     p-size="lg"
-    (p-close)="fecharModal()">
+    [p-primary-action]="acaoSalvarInclusao"
+    [p-secondary-action]="acaoCancelar">
     
-    <form [formGroup]="form" class="po-row">
-      <div class="po-md-6">
-        <po-input p-label="Código" formControlName="codigo" p-readonly="true"></po-input>
+    <form [formGroup]="formIncluir" *ngIf="formIncluir" class="po-row">
+      <div class="po-md-4">
+        <po-input 
+          p-label="Código" 
+          p-required
+          formControlName="codigo">
+        </po-input>
+      </div>
+      <div class="po-md-4">
+        <po-input 
+          p-label="Loja" 
+          p-required
+          formControlName="loja">
+        </po-input>
+      </div>
+      <div class="po-md-4">
+        <po-input 
+          p-label="Nome" 
+          p-required
+          formControlName="nome">
+        </po-input>
       </div>
       <div class="po-md-6">
-        <po-input p-label="Loja" formControlName="loja" p-readonly="true"></po-input>
+        <po-input 
+          p-label="Nome Fantasia" 
+          formControlName="fantasia">
+        </po-input>
       </div>
-      <div class="po-md-12">
-        <po-input p-label="Nome" formControlName="nome" p-readonly="true"></po-input>
+      <div class="po-md-6">
+        <po-input 
+          p-label="CPF/CNPJ" 
+          p-required
+          formControlName="cpf">
+        </po-input>
       </div>
       <div class="po-md-4">
         <po-input 
           p-label="CEP" 
-          formControlName="cep" 
           p-mask="99999-999"
-          (p-change)="buscarEnderecoPorCep($event)"></po-input>
+          formControlName="cep">
+        </po-input>
       </div>
       <div class="po-md-8">
-        <po-input p-label="Endereço" formControlName="endereco"></po-input>
-      </div>
-      <div class="po-md-3">
-        <po-input p-label="Número" formControlName="numero"></po-input>
-      </div>
-      <div class="po-md-9">
-        <po-input p-label="Complemento" formControlName="complemento"></po-input>
+        <po-input 
+          p-label="Endereço" 
+          formControlName="endereco">
+        </po-input>
       </div>
       <div class="po-md-4">
-        <po-input p-label="Bairro" formControlName="bairro"></po-input>
+        <po-input 
+          p-label="Bairro" 
+          formControlName="bairro">
+        </po-input>
       </div>
-      <div class="po-md-6">
-        <po-input p-label="Município" formControlName="municipio"></po-input>
+      <div class="po-md-4">
+        <po-input 
+          p-label="Cidade" 
+          formControlName="cidade">
+        </po-input>
       </div>
-      <div class="po-md-2">
-        <po-input p-label="Estado" formControlName="estado"></po-input>
+      <div class="po-md-4">
+        <po-input 
+          p-label="Estado" 
+          p-uppercase
+          formControlName="estado">
+        </po-input>
       </div>
     </form>
+  </po-modal>
 
-    <div class="po-row">
-      <div class="po-md-12 po-text-right">
-        <po-button
-          p-label="Cancelar"
-          (p-click)="fecharModal()"
-          class="po-mr-1">
-        </po-button>
-        <po-button
-          p-label="Salvar"
-          [p-loading]="carregando"
-          (p-click)="salvarEndereco()">
-        </po-button>
+  <!-- Modal para Edição de Cliente -->
+  <po-modal
+    #modalEditar
+    p-title="Editar Cliente"
+    p-size="lg"
+    [p-primary-action]="acaoSalvarEdicao"
+    [p-secondary-action]="acaoCancelar">
+    
+    <form [formGroup]="formAlterarWS" *ngIf="formAlterarWS && clienteSelecionado" class="po-row">
+      <div class="po-md-12 po-mb-2">
+        <p class="po-text-color-08">
+          <strong>Cliente:</strong> {{clienteSelecionado.codigo}}/{{clienteSelecionado.loja}} - {{clienteSelecionado.nome}}
+        </p>
+      </div>
+      <div class="po-md-6">
+        <po-input 
+          p-label="Nome" 
+          p-required
+          formControlName="nome">
+        </po-input>
+      </div>
+      <div class="po-md-6">
+        <po-input 
+          p-label="Nome Reduzido" 
+          p-required
+          formControlName="nomeReduzido">
+        </po-input>
+      </div>
+      <div class="po-md-4">
+        <po-input 
+          p-label="CEP" 
+          p-mask="99999-999"
+          formControlName="cep">
+        </po-input>
+      </div>
+      <div class="po-md-8">
+        <po-input 
+          p-label="Endereço" 
+          formControlName="endereco">
+        </po-input>
+      </div>
+      <div class="po-md-6">
+        <po-input 
+          p-label="Cidade" 
+          formControlName="cidade">
+        </po-input>
+      </div>
+      <div class="po-md-3">
+        <po-input 
+          p-label="Estado" 
+          p-uppercase
+          formControlName="estado">
+        </po-input>
+      </div>
+      <div class="po-md-3">
+        <po-input 
+          p-label="País" 
+          formControlName="pais">
+        </po-input>
+      </div>
+    </form>
+  </po-modal>
+
+  <!-- Modal para Confirmação de Exclusão -->
+  <po-modal
+    #modalExcluir
+    p-title="Confirmar Exclusão"
+    p-icon="po-icon-delete"
+    p-size="md"
+    [p-primary-action]="acaoConfirmarExclusao"
+    [p-secondary-action]="acaoCancelar">
+    
+    <div *ngIf="clienteSelecionado" class="po-row">
+      <div class="po-md-12">
+        <p class="po-text-center po-mb-2">
+          <strong>Deseja realmente excluir o cliente?</strong>
+        </p>
+        <div class="po-text-center po-p-2" style="background-color: #f5f5f5; border-radius: 4px;">
+          <p class="po-m-0"><strong>Código:</strong> {{clienteSelecionado.codigo}}</p>
+          <p class="po-m-0"><strong>Loja:</strong> {{clienteSelecionado.loja}}</p>
+          <p class="po-m-0"><strong>Nome:</strong> {{clienteSelecionado.nome}}</p>
+          <p class="po-m-0" *ngIf="clienteSelecionado.endereco"><strong>Endereço:</strong> {{clienteSelecionado.endereco}}</p>
+        </div>
+        <p class="po-text-color-07 po-text-center po-mt-2 po-font-text-small">
+          <strong>Atenção:</strong> Esta ação não pode ser desfeita.
+        </p>
       </div>
     </div>
   </po-modal>
 
-  <!-- Modal para Atualização por CEP -->
+  <!-- Modal para Atualização por CEP (compatibilidade) -->
   <po-modal
     p-title="Atualizar Endereço por CEP"
     *ngIf="modalCep"
     p-size="md"
+    [p-click-out]="true"
+    [p-hide-close]="false"
+    p-position="center"
     (p-close)="fecharModalCep()">
     
     <div class="po-row">

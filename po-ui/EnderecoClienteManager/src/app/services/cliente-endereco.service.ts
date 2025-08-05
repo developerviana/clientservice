@@ -88,6 +88,33 @@ export class ClienteEnderecoService {
       catchError(this.handleError)
     );
   }
+  
+  /**
+   * Altera os dados de um cliente via WS direto
+   */
+  alterarClienteWS(codigo: string, loja: string, dados: any): Observable<ApiResponse> {
+    console.log('🔄 Alterando cliente via WS - Dados recebidos:', dados);
+    
+    return this.getAuthenticatedHeaders().pipe(
+      switchMap(headers => {
+        const endpoint = `${this.baseUrl}/WSCLIENTE/${codigo}/${loja}`;
+        
+        console.log('📤 Headers para alteração:', headers);
+        console.log('📤 URL:', endpoint);
+        console.log('📤 JSON que será enviado:', JSON.stringify(dados, null, 2));
+        
+        return this.http.put<ApiResponse>(endpoint, dados, { headers });
+      }),
+      map(response => {
+        console.log('✅ Resposta da alteração:', response);
+        return response;
+      }),
+      catchError(error => {
+        console.error('❌ Erro na alteração:', error);
+        return this.handleError(error);
+      })
+    );
+  }
 
   /**
    * Atualiza endereço por CEP
@@ -127,11 +154,24 @@ export class ClienteEnderecoService {
    * Inclui um novo cliente
    */
   incluirCliente(dados: any): Observable<ApiResponse> {
+    console.log('🔄 Incluindo cliente - Dados recebidos:', dados);
+    
     return this.getAuthenticatedHeaders().pipe(
-      switchMap(headers =>
-        this.http.post<ApiResponse>(`${this.baseUrl}/WSCLIENTE/clientes`, dados, { headers })
-      ),
-      catchError(this.handleError)
+      switchMap(headers => {
+        console.log('📤 Headers para inclusão:', headers);
+        console.log('📤 URL:', `${this.baseUrl}/WSCLIENTE/clientes`);
+        console.log('📤 JSON que será enviado:', JSON.stringify(dados, null, 2));
+        
+        return this.http.post<ApiResponse>(`${this.baseUrl}/WSCLIENTE/clientes`, dados, { headers });
+      }),
+      map(response => {
+        console.log('✅ Resposta da inclusão:', response);
+        return response;
+      }),
+      catchError(error => {
+        console.error('❌ Erro na inclusão:', error);
+        return this.handleError(error);
+      })
     );
   }
 
@@ -139,11 +179,30 @@ export class ClienteEnderecoService {
    * Exclui um cliente
    */
   excluirCliente(codigo: string, loja: string): Observable<ApiResponse> {
+    console.log('🔄 Excluindo cliente:', codigo, loja);
+    
     return this.getAuthenticatedHeaders().pipe(
-      switchMap(headers =>
-        this.http.delete<ApiResponse>(`${this.baseUrl}/WSCLIENTE/clientes/${codigo}/${loja}`, { headers })
-      ),
-      catchError(this.handleError)
+      switchMap(headers => {
+        const endpoint = `${this.baseUrl}/WSCLIENTE/clientes`;
+        const body = { codigo, loja };
+        
+        console.log('📤 Headers para exclusão:', headers);
+        console.log('📤 URL:', endpoint);
+        console.log('📤 Body JSON:', JSON.stringify(body, null, 2));
+        
+        return this.http.delete<ApiResponse>(endpoint, { 
+          headers,
+          body: body
+        });
+      }),
+      map(response => {
+        console.log('✅ Resposta da exclusão:', response);
+        return response;
+      }),
+      catchError(error => {
+        console.error('❌ Erro na exclusão:', error);
+        return this.handleError(error);
+      })
     );
   }
 

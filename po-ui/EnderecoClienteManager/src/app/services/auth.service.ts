@@ -104,25 +104,25 @@ export class AuthService {
   getAuthHeaders(): HttpHeaders {
     const token = this.getCurrentToken();
     
-    if (!token) {
-      // Tenta autenticação automática com credenciais do environment
-      this.authenticateBasic().subscribe();
-      return new HttpHeaders();
-    }
-
     let headers = new HttpHeaders({
       'Content-Type': 'application/json',
       'Accept': 'application/json'
     });
 
-    switch (token.type) {
-      case 'basic':
-        headers = headers.set('Authorization', `Basic ${token.token}`);
-        break;
-      case 'bearer':
-      case 'jwt':
-        headers = headers.set('Authorization', `Bearer ${token.token}`);
-        break;
+    if (token) {
+      switch (token.type) {
+        case 'basic':
+          headers = headers.set('Authorization', `Basic ${token.token}`);
+          break;
+        case 'bearer':
+        case 'jwt':
+          headers = headers.set('Authorization', `Bearer ${token.token}`);
+          break;
+      }
+    } else {
+      // Se não tem token, usa autenticação padrão
+      const basicToken = btoa('admin:msadm');
+      headers = headers.set('Authorization', `Basic ${basicToken}`);
     }
 
     // Headers específicos do TOTVS se necessário
