@@ -27,7 +27,6 @@ clientservices/
 ### 1. MVC (Model-View-Controller)
 
 **Arquivos:**
-- `CLICAD.prw` – Cadastro de clientes (View)
 - `CLIMVC.prw` – Controlador MVC
 
 **Funcionalidades:**
